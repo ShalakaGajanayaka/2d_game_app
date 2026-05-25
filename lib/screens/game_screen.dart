@@ -22,6 +22,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   double _crashPoint = 1.0;
   
   late AnimationController _controller;
+  Timer? _countdownTimer;
+  int _countdown = 15;
+  bool _isBetPlaced = false;
   
   @override
   void initState() {
@@ -40,14 +43,38 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           }
         });
     });
+    
+    // Start initial countdown when screen loads
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    setState(() {
+      _status = GameStatus.waiting;
+      _countdown = 15;
+      _currentMultiplier = 1.0;
+    });
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_countdown > 0) {
+          _countdown--;
+        } else {
+          timer.cancel();
+          _startGame();
+        }
+      });
+    });
   }
 
   void _startGame() {
-    if (_balance < _betAmount) return;
-    
     setState(() {
-      _balance -= _betAmount;
-      _status = GameStatus.playing;
+      if (_isBetPlaced) {
+        _status = GameStatus.playing;
+      } else {
+        _status = GameStatus.spectating;
+      }
+      
       _currentMultiplier = 1.0;
       
       // Generate a crash point with heavy bias towards lower numbers
@@ -67,13 +94,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     return double.parse((e).toStringAsFixed(2));
   }
 
+  void _toggleBet() {
+    if (_status == GameStatus.waiting) {
+      setState(() {
+        if (_isBetPlaced) {
+          // Cancel bet
+          _balance += _betAmount;
+          _isBetPlaced = false;
+        } else {
+          // Place bet
+          if (_balance >= _betAmount) {
+            _balance -= _betAmount;
+            _isBetPlaced = true;
+          }
+        }
+      });
+    }
+  }
+
   void _cashOut() {
     if (_status != GameStatus.playing) return;
     
     setState(() {
       _status = GameStatus.cashedOut;
       _balance += _betAmount * _currentMultiplier;
-      _controller.stop();
+      _isBetPlaced = false;
+      // Do NOT stop the controller; let the plane keep flying for spectators!
     });
   }
 
@@ -82,11 +128,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       _status = GameStatus.crashed;
       _currentMultiplier = _crashPoint;
       _controller.stop();
+      _isBetPlaced = false;
+    });
+    
+    // Wait 3 seconds to show "Crashed" before starting the next 15s timer
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        _startCountdown();
+      }
     });
   }
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -123,23 +178,41 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               ),
               child: Stack(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: PlaneGraph(
-                      multiplier: _currentMultiplier,
-                      isCrashed: _status == GameStatus.crashed,
-                    ),
-                  ),
-                  Center(
-                    child: Text(
-                      '${_currentMultiplier.toStringAsFixed(2)}x',
-                      style: TextStyle(
-                        color: _status == GameStatus.crashed ? Colors.red : Colors.white,
-                        fontSize: 64,
-                        fontWeight: FontWeight.bold,
+                  if (_status != GameStatus.waiting)
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: PlaneGraph(
+                        multiplier: _currentMultiplier,
+                        isCrashed: _status == GameStatus.crashed,
                       ),
                     ),
-                  ),
+                  if (_status == GameStatus.waiting)
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'NEXT ROUND IN',
+                            style: TextStyle(color: Colors.grey, fontSize: 24, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '$_countdown s',
+                            style: const TextStyle(color: Colors.white, fontSize: 64, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Center(
+                      child: Text(
+                        '${_currentMultiplier.toStringAsFixed(2)}x',
+                        style: TextStyle(
+                          color: _status == GameStatus.crashed ? Colors.red : Colors.white,
+                          fontSize: 64,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   if (_status == GameStatus.crashed)
                     const Center(
                       child: Column(
@@ -197,7 +270,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.remove_circle, color: Colors.white),
-                                onPressed: _status == GameStatus.waiting || _status == GameStatus.crashed || _status == GameStatus.cashedOut
+                                onPressed: _status == GameStatus.waiting && !_isBetPlaced
                                     ? () {
                                         setState(() {
                                           if (_betAmount > 1.0) _betAmount -= 1.0;
@@ -208,7 +281,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               Text('\$${_betAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 24)),
                               IconButton(
                                 icon: const Icon(Icons.add_circle, color: Colors.white),
-                                onPressed: _status == GameStatus.waiting || _status == GameStatus.crashed || _status == GameStatus.cashedOut
+                                onPressed: _status == GameStatus.waiting && !_isBetPlaced
                                     ? () {
                                         setState(() {
                                           _betAmount += 1.0;
@@ -226,8 +299,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
-                        if (_status == GameStatus.waiting || _status == GameStatus.crashed || _status == GameStatus.cashedOut) {
-                          _startGame();
+                        if (_status == GameStatus.waiting) {
+                          _toggleBet();
                         } else if (_status == GameStatus.playing) {
                           _cashOut();
                         }
@@ -235,12 +308,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       child: Container(
                         height: 80,
                         decoration: BoxDecoration(
-                          color: _status == GameStatus.playing ? Colors.orange : Colors.green,
+                          color: _status == GameStatus.playing
+                              ? Colors.orange
+                              : (_status == GameStatus.waiting
+                                  ? (_isBetPlaced ? Colors.red : Colors.green)
+                                  : Colors.grey),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
                           child: Text(
-                            _status == GameStatus.playing ? 'CASH OUT' : 'BET',
+                            _status == GameStatus.playing
+                                ? 'CASH OUT'
+                                : (_status == GameStatus.waiting
+                                    ? (_isBetPlaced ? 'CANCEL BET' : 'BET')
+                                    : 'WAITING'),
                             style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                           ),
                         ),
