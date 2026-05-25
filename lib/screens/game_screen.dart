@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -53,7 +55,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _initSocket() {
     // Connect to the NestJS server using API from .env
-    final String serverUrl = dotenv.env['SERVER_API_URL']!;
+    String serverUrl = dotenv.env['SERVER_API_URL']!;
+    
+    // Automatically patch localhost to 10.0.2.2 for Android emulators
+    if (!kIsWeb && Platform.isAndroid) {
+      serverUrl = serverUrl.replaceFirst('localhost', '10.0.2.2');
+      serverUrl = serverUrl.replaceFirst('127.0.0.1', '10.0.2.2');
+    }
+
     socket = IO.io(serverUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
