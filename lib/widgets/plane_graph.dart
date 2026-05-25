@@ -14,13 +14,14 @@ class PlaneGraph extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // We use a non-linear scale for the plane's position so it curves up.
-        // The plane max visual bound is roughly at a multiplier of 10.0
-        double progress = (multiplier - 1.0) / 10.0; 
-        if (progress > 1.0) progress = 1.0; 
+        // Asymptotic progress so it never quite hits 1.0 but gets very close.
+        // This simulates the graph "zooming out" as multiplier gets larger.
+        double progress = 1.0 - (1.0 / (1.0 + (multiplier - 1.0) * 0.15));
+        if (progress < 0) progress = 0;
+        if (progress > 1.0) progress = 1.0;
         
-        // Calculate curve position
-        double x = constraints.maxWidth * (1 - (1 - progress) * (1 - progress)); // ease out
+        // Calculate curve position (linear interpolation of the asymptotic progress)
+        double x = constraints.maxWidth * progress;
         double y = constraints.maxHeight - (constraints.maxHeight * progress);
 
         return Stack(
@@ -65,10 +66,11 @@ class GraphPainter extends CustomPainter {
     path.moveTo(0, size.height);
     
     // Draw a curved path up to current progress
-    double endX = size.width * (1 - (1 - progress) * (1 - progress));
+    double endX = size.width * progress;
     double endY = size.height - (size.height * progress);
     
-    path.quadraticBezierTo(endX * 0.5, size.height, endX, endY);
+    // Quadratic bezier to make it look like an exponential curve starting from bottom left
+    path.quadraticBezierTo(endX * 0.6, size.height, endX, endY);
 
     canvas.drawPath(path, paint);
 

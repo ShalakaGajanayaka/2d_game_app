@@ -176,17 +176,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 color: Colors.grey[900],
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Stack(
-                children: [
-                  if (_status != GameStatus.waiting)
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: PlaneGraph(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Stack(
+                  children: [
+                    if (_status != GameStatus.waiting)
+                      PlaneGraph(
                         multiplier: _currentMultiplier,
                         isCrashed: _status == GameStatus.crashed,
                       ),
-                    ),
-                  if (_status == GameStatus.waiting)
+                    if (_status == GameStatus.waiting)
                     Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -248,6 +247,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                 ],
+              ),
               ),
             ),
           ),
