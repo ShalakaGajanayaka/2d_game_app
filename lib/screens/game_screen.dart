@@ -25,6 +25,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   double _currentMultiplier = 1.0;
   double _cashedOutMultiplier = 0.0;
   
+  final List<double> _history = [];
+  
   late AnimationController _controller;
   int _countdown = 15;
   bool _isBetPlaced = false;
@@ -107,6 +109,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
            else if (newStatus == GameStatus.crashed) {
               _controller.stop();
               _currentMultiplier = data['currentMultiplier'].toDouble();
+              _history.insert(0, _currentMultiplier);
+              if (_history.length > 20) {
+                 _history.removeLast();
+              }
               _isBetPlaced = false;
            }
            else if (newStatus == GameStatus.waiting) {
@@ -194,6 +200,34 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       ),
       body: Column(
         children: [
+          Container(
+            height: 40,
+            width: double.infinity,
+            color: Colors.black,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _history.length,
+              itemBuilder: (context, index) {
+                final mult = _history[index];
+                Color color = mult < 2.0 ? const Color(0xFF3498db) : (mult < 10.0 ? const Color(0xFF9b59b6) : const Color(0xFFe91e63));
+                return Container(
+                  margin: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: color, width: 1.5)
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${mult.toStringAsFixed(2)}x',
+                    style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                );
+              },
+            ),
+          ),
           Expanded(
             flex: 3,
             child: Container(
