@@ -299,6 +299,39 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [20, 50, 100, 200, 500, 1000, 5000].map((amount) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                child: InkWell(
+                                  onTap: _status == GameStatus.waiting && !_isBetPlaced
+                                      ? () {
+                                          setState(() {
+                                            _betAmount = amount.toDouble();
+                                          });
+                                        }
+                                      : null,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[800],
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.grey[600]!),
+                                    ),
+                                    child: Text(
+                                      '\$$amount',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
                         )
                       ],
                     ),
