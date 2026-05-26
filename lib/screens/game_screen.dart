@@ -20,6 +20,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   
   double _balance = 1000.0;
   double _betAmount = 10.0;
+  final TextEditingController _betController = TextEditingController(text: '10.00');
   
   double _currentMultiplier = 1.0;
   double _cashedOutMultiplier = 0.0;
@@ -119,7 +120,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   void _toggleBet() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    
     if (_status == GameStatus.waiting) {
+      // Ensure we have the latest text value parsed correctly
+      final parsed = double.tryParse(_betController.text);
+      if (parsed != null && parsed > 0) {
+        _betAmount = parsed;
+      }
+
       setState(() {
         if (_isBetPlaced) {
           // Cancel bet
@@ -130,6 +139,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           if (_balance >= _betAmount) {
             _balance -= _betAmount;
             _isBetPlaced = true;
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Insufficient balance!'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 2),
+              ),
+            );
           }
         }
       });
@@ -151,6 +168,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   void dispose() {
     socket.dispose();
     _controller.dispose();
+    _betController.dispose();
     super.dispose();
   }
 
@@ -281,18 +299,43 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 onPressed: _status == GameStatus.waiting && !_isBetPlaced
                                     ? () {
                                         setState(() {
-                                          if (_betAmount > 1.0) _betAmount -= 1.0;
+                                          if (_betAmount > 1.0) {
+                                            _betAmount -= 1.0;
+                                            _betController.text = _betAmount.toStringAsFixed(2);
+                                          }
                                         });
                                       }
                                     : null,
                               ),
-                              Text('\$${_betAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 24)),
+                              const Text('\$', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                              SizedBox(
+                                width: 100,
+                                child: TextField(
+                                  controller: _betController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  enabled: _status == GameStatus.waiting && !_isBetPlaced,
+                                  onChanged: (val) {
+                                    final parsed = double.tryParse(val);
+                                    if (parsed != null && parsed > 0) {
+                                      _betAmount = parsed;
+                                    }
+                                  },
+                                ),
+                              ),
                               IconButton(
                                 icon: const Icon(Icons.add_circle, color: Colors.white),
                                 onPressed: _status == GameStatus.waiting && !_isBetPlaced
                                     ? () {
                                         setState(() {
                                           _betAmount += 1.0;
+                                          _betController.text = _betAmount.toStringAsFixed(2);
                                         });
                                       }
                                     : null,
@@ -312,6 +355,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                       ? () {
                                           setState(() {
                                             _betAmount = amount.toDouble();
+                                            _betController.text = _betAmount.toStringAsFixed(2);
                                           });
                                         }
                                       : null,
