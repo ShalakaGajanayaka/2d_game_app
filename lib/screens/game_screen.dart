@@ -22,6 +22,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   double _betAmount = 10.0;
   
   double _currentMultiplier = 1.0;
+  double _cashedOutMultiplier = 0.0;
   
   late AnimationController _controller;
   int _countdown = 15;
@@ -140,6 +141,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     
     setState(() {
       _status = GameStatus.cashedOut;
+      _cashedOutMultiplier = _currentMultiplier;
       _balance += _betAmount * _currentMultiplier;
       _isBetPlaced = false;
     });
@@ -245,7 +247,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 border: Border.all(color: Colors.green, width: 2)
                               ),
                               child: Text(
-                                'WON \$${(_betAmount * _currentMultiplier).toStringAsFixed(2)}',
+                                'WON \$${(_betAmount * _cashedOutMultiplier).toStringAsFixed(2)}',
                                 style: const TextStyle(color: Colors.green, fontSize: 24, fontWeight: FontWeight.bold),
                               ),
                             ),
