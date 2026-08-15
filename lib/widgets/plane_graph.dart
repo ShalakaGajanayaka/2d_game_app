@@ -33,25 +33,83 @@ class PlaneGraph extends StatelessWidget {
             Positioned(
               left: x - 24, // center the 48px icon
               top: y - 24,
-              child: Transform.rotate(
-                angle: -0.5, // slightly tilted up
-                child: Text(
-                  '🦅',
-                  style: TextStyle(
-                    fontSize: 48,
-                    shadows: [
-                      Shadow(
-                        color: isCrashed ? Colors.red : Colors.redAccent,
-                        blurRadius: 10,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              child: FlappingEagle(isCrashed: isCrashed),
             ),
           ],
         );
       }
+    );
+  }
+}
+
+class FlappingEagle extends StatefulWidget {
+  final bool isCrashed;
+  const FlappingEagle({Key? key, required this.isCrashed}) : super(key: key);
+
+  @override
+  State<FlappingEagle> createState() => _FlappingEagleState();
+}
+
+class _FlappingEagleState extends State<FlappingEagle> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    if (!widget.isCrashed) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(FlappingEagle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isCrashed) {
+      _controller.stop();
+    } else if (!widget.isCrashed && !_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scaleY: 1.0 - (_controller.value * 0.3),
+          alignment: Alignment.center,
+          child: Transform.translate(
+            offset: Offset(0, _controller.value * -5.0),
+            child: Transform.rotate(
+              angle: -0.5 + (_controller.value * 0.15),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: Text(
+        '🦅',
+        style: TextStyle(
+          fontSize: 48,
+          shadows: [
+            Shadow(
+              color: widget.isCrashed ? Colors.red : Colors.redAccent,
+              blurRadius: 10,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
