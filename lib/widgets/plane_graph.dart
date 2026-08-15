@@ -49,15 +49,21 @@ class PlaneGraph extends StatelessWidget {
               painter: GraphPainter(t, isCrashed),
             ),
             Positioned(
-              left: x - 24, // center the 48px icon
-              top: y - 24,
-              child: Transform.rotate(
-                angle: planeAngle,
-                child: Icon(
-                  Icons.flight,
-                  size: 48,
-                  color: isCrashed ? Colors.red : Colors.redAccent,
-                ),
+              left: x - 32,
+              top: y - 32,
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: isCrashed
+                    ? CrashExplosion(planeAngle: planeAngle)
+                    : Transform.rotate(
+                        angle: planeAngle,
+                        child: const Icon(
+                          Icons.flight,
+                          size: 48,
+                          color: Colors.redAccent,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -122,5 +128,94 @@ class GraphPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant GraphPainter oldDelegate) {
     return oldDelegate.t != t || oldDelegate.isCrashed != isCrashed;
+  }
+}
+
+class CrashExplosion extends StatefulWidget {
+  final double planeAngle;
+  
+  const CrashExplosion({Key? key, required this.planeAngle}) : super(key: key);
+
+  @override
+  _CrashExplosionState createState() => _CrashExplosionState();
+}
+
+class _CrashExplosionState extends State<CrashExplosion> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+  late Animation<double> _planeScaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 3.5).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCirc)
+    );
+    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutQuint)
+    );
+    _planeScaleAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInQuint)
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Shrinking plane
+            Transform.scale(
+              scale: _planeScaleAnimation.value,
+              child: Transform.rotate(
+                angle: widget.planeAngle,
+                child: const Icon(
+                  Icons.flight,
+                  size: 48,
+                  color: Colors.redAccent,
+                ),
+              ),
+            ),
+            // Expanding and fading explosion
+            Opacity(
+              opacity: _opacityAnimation.value,
+              child: Transform.scale(
+                scale: _scaleAnimation.value,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.orangeAccent.withOpacity(0.9),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.redAccent, blurRadius: 20, spreadRadius: 10)
+                        ]
+                      ),
+                    ),
+                    const Icon(Icons.brightness_7, size: 40, color: Colors.yellow),
+                    const Icon(Icons.local_fire_department, size: 24, color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+    );
   }
 }
