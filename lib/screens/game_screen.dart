@@ -47,7 +47,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     
-    // The controller is just used to trigger build frames smoothly for the animation.
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 100), 
@@ -67,7 +66,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _initSocket() {
     String serverUrl = dotenv.env['SERVER_API_URL']!;
-    
     if (!kIsWeb && Platform.isAndroid) {
       serverUrl = serverUrl.replaceFirst('localhost', '10.0.2.2');
       serverUrl = serverUrl.replaceFirst('127.0.0.1', '10.0.2.2');
@@ -80,10 +78,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     
     socket.connect();
     
-    socket.onConnect((_) {
-      debugPrint('Connected to server!');
-    });
-
     socket.on('gameState', (data) {
       if (!mounted) return;
       
@@ -203,39 +197,49 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     bool isWaiting = _status == GameStatus.waiting;
     bool isPlaying = _status == GameStatus.playing || _status == GameStatus.spectating;
     
-    Color btnColor = Colors.grey[700]!;
+    Gradient btnGradient = const LinearGradient(colors: [Color(0xFF334155), Color(0xFF1E293B)]);
     String btnText = 'WAITING';
+    List<BoxShadow> btnShadow = [];
     
     if (isWaiting) {
-      btnColor = isPlaced ? Colors.red : Colors.green;
-      btnText = isPlaced ? 'CANCEL BET' : 'BET';
+      if (isPlaced) {
+        btnGradient = const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFB91C1C)]);
+        btnText = 'CANCEL BET';
+        btnShadow = [BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
+      } else {
+        btnGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]);
+        btnText = 'BET';
+        btnShadow = [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
+      }
     } else if (isPlaying) {
       if (isPlaced && !hasCashedOut) {
-        btnColor = Colors.orange;
+        btnGradient = const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]);
         btnText = 'CASH OUT\n${(betAmount * _currentMultiplier).toStringAsFixed(2)}';
+        btnShadow = [BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
       } else if (hasCashedOut) {
-        btnColor = Colors.green.withOpacity(0.5);
+        btnGradient = LinearGradient(colors: [const Color(0xFF10B981).withOpacity(0.6), const Color(0xFF059669).withOpacity(0.6)]);
         btnText = 'CASHED OUT\n${(betAmount * cashedOutMult).toStringAsFixed(2)}';
-      } else {
-        btnColor = Colors.grey[700]!;
-        btnText = 'WAITING';
       }
     } else {
       if (isPlaced && !hasCashedOut) {
-        btnColor = Colors.red.withOpacity(0.5);
+        btnGradient = LinearGradient(colors: [const Color(0xFFEF4444).withOpacity(0.6), const Color(0xFFB91C1C).withOpacity(0.6)]);
         btnText = 'LOST';
       } else if (hasCashedOut) {
-        btnColor = Colors.green.withOpacity(0.5);
+        btnGradient = LinearGradient(colors: [const Color(0xFF10B981).withOpacity(0.6), const Color(0xFF059669).withOpacity(0.6)]);
         btnText = 'WON\n${(betAmount * cashedOutMult).toStringAsFixed(2)}';
       }
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.grey[900],
+        color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+        ]
       ),
       child: Row(
         children: [
@@ -247,10 +251,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle, color: Colors.white),
-                      iconSize: 20,
-                      onPressed: isWaiting && !isPlaced
+                    InkWell(
+                      onTap: isWaiting && !isPlaced
                           ? () {
                               setState(() {
                                 if (betAmount > 1.0) {
@@ -260,7 +262,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               });
                             }
                           : null,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Color(0xFF334155), shape: BoxShape.circle),
+                        child: const Icon(Icons.remove, color: Colors.white, size: 20),
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     const Text('\$', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     SizedBox(
                       width: 60,
@@ -268,7 +277,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         controller: controller,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                         enabled: isWaiting && !isPlaced,
                         onChanged: (val) {
@@ -280,10 +289,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         },
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle, color: Colors.white),
-                      iconSize: 20,
-                      onPressed: isWaiting && !isPlaced
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: isWaiting && !isPlaced
                           ? () {
                               setState(() {
                                 if (betIndex == 1) { _betAmount1 += 1.0; _betController1.text = _betAmount1.toStringAsFixed(2); }
@@ -291,15 +299,22 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               });
                             }
                           : null,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Color(0xFF334155), shape: BoxShape.circle),
+                        child: const Icon(Icons.add, color: Colors.white, size: 20),
+                      ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [20, 50, 100, 200, 500].map((amount) {
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
                         child: InkWell(
                           onTap: isWaiting && !isPlaced
                               ? () {
@@ -309,10 +324,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                   });
                                 }
                               : null,
+                          borderRadius: BorderRadius.circular(12),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4)),
-                            child: Text('\$$amount', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A), 
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF334155))
+                            ),
+                            child: Text('\$$amount', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       );
@@ -322,7 +342,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             flex: 2,
             child: GestureDetector(
@@ -333,14 +353,19 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   _cashOut(betIndex);
                 }
               },
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 height: 56,
-                decoration: BoxDecoration(color: btnColor, borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  gradient: btnGradient,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: btnShadow,
+                ),
                 child: Center(
                   child: Text(
                     btnText,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
                   ),
                 ),
               ),
@@ -354,7 +379,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0F172A), // Premium Dark Slate
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -377,15 +402,29 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             ),
           ],
         ),
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
           Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(
-                'Balance: \$${_balance.toStringAsFixed(2)}',
-                style: const TextStyle(color: Colors.green, fontSize: 18, fontWeight: FontWeight.bold),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
+                ]
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    '\$${_balance.toStringAsFixed(2)}',
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
             ),
           )
@@ -406,24 +445,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 children: _history.map((mult) {
                   Color color;
                   if (mult < 2.0) {
-                    color = Colors.red;
+                    color = Colors.redAccent;
                   } else if (mult < 5.0) {
-                    color = const Color(0xFF9b59b6); // Purple
+                    color = const Color(0xFFC084FC); // Purple
                   } else if (mult < 10.0) {
-                    color = Colors.blue;
+                    color = Colors.lightBlueAccent;
                   } else if (mult < 20.0) {
-                    color = Colors.green;
+                    color = Colors.greenAccent;
                   } else if (mult < 50.0) {
-                    color = Colors.orange;
+                    color = Colors.orangeAccent;
                   } else {
                     color = const Color(0xFFFFD700); // Gold
                   }
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.2),
+                      color: color.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: color, width: 1.0)
+                      border: Border.all(color: color.withOpacity(0.8), width: 1.0)
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -440,11 +479,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             child: Container(
               margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF334155), width: 1.5),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 8))
+                ]
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 child: Stack(
                   children: [
                     if (_status != GameStatus.waiting)
@@ -459,11 +502,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           children: [
                             const Text(
                               'NEXT ROUND IN',
-                              style: TextStyle(color: Colors.grey, fontSize: 24, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: Colors.white54, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.5),
                             ),
+                            const SizedBox(height: 8),
                             Text(
-                              '$_countdown s',
-                              style: const TextStyle(color: Colors.white, fontSize: 64, fontWeight: FontWeight.bold),
+                              '$_countdown',
+                              style: const TextStyle(
+                                color: Colors.white, 
+                                fontSize: 80, 
+                                fontWeight: FontWeight.w900,
+                                shadows: [Shadow(color: Colors.white24, blurRadius: 20)]
+                              ),
                             ),
                           ],
                         ),
@@ -473,21 +522,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         child: Text(
                           '${_currentMultiplier.toStringAsFixed(2)}x',
                           style: TextStyle(
-                            color: _status == GameStatus.crashed ? Colors.red : Colors.white,
-                            fontSize: 64,
-                            fontWeight: FontWeight.bold,
+                            color: _status == GameStatus.crashed ? Colors.redAccent : Colors.white,
+                            fontSize: 72,
+                            fontWeight: FontWeight.w900,
+                            shadows: [
+                              Shadow(
+                                color: (_status == GameStatus.crashed ? Colors.redAccent : Colors.lightBlueAccent).withOpacity(0.6),
+                                blurRadius: 25,
+                              )
+                            ]
                           ),
                         ),
                       ),
                     if (_status == GameStatus.crashed)
-                      const Center(
+                      Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SizedBox(height: 150),
-                            Text(
-                              'FLEW AWAY!',
-                              style: TextStyle(color: Colors.red, fontSize: 28, fontWeight: FontWeight.bold),
+                            const SizedBox(height: 180),
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Colors.redAccent, Colors.orangeAccent],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'FLEW AWAY!',
+                                style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: 2.0),
+                              ),
                             ),
                           ],
                         ),
