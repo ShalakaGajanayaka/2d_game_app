@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'dart:io' show Platform;
@@ -39,6 +40,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   
   late AnimationController _controller;
   int _countdown = 15;
+  
+  bool _showWinMessage = false;
+  double _winAmount = 0.0;
+  double _winMultiplier = 0.0;
+  Timer? _winMessageTimer;
   
   late IO.Socket socket;
   double _serverStartTime = 0;
@@ -166,14 +172,29 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     
     if (!isPlaced || hasCashedOut) return;
     
+    double winAmount = currentBet * _currentMultiplier;
+    
     setState(() {
-      _balance += currentBet * _currentMultiplier;
+      _balance += winAmount;
       if (betIndex == 1) {
         _hasCashedOut1 = true;
         _cashedOutMultiplier1 = _currentMultiplier;
       } else {
         _hasCashedOut2 = true;
         _cashedOutMultiplier2 = _currentMultiplier;
+      }
+      
+      _showWinMessage = true;
+      _winAmount = winAmount;
+      _winMultiplier = _currentMultiplier;
+    });
+    
+    _winMessageTimer?.cancel();
+    _winMessageTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _showWinMessage = false;
+        });
       }
     });
   }
@@ -656,6 +677,59 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    if (_showWinMessage)
+                      Center(
+                        child: TweenAnimationBuilder(
+                          duration: const Duration(milliseconds: 600),
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          curve: Curves.elasticOut,
+                          builder: (context, double val, child) {
+                            return Transform.scale(
+                              scale: val,
+                              child: Opacity(
+                                opacity: val.clamp(0.0, 1.0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+                                    borderRadius: BorderRadius.circular(30),
+                                    boxShadow: [
+                                      BoxShadow(color: const Color(0xFF10B981).withOpacity(0.5), blurRadius: 25, spreadRadius: 5)
+                                    ],
+                                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 2)
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text(
+                                        'YOU WIN!',
+                                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '\$${_winAmount.toStringAsFixed(2)}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900),
+                                      ),
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.3),
+                                          borderRadius: BorderRadius.circular(12)
+                                        ),
+                                        child: Text(
+                                          '${_winMultiplier.toStringAsFixed(2)}x',
+                                          style: const TextStyle(color: Colors.yellowAccent, fontSize: 16, fontWeight: FontWeight.bold),
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                   ],
