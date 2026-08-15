@@ -356,7 +356,27 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('SkyRush'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.flight_takeoff, color: Colors.orangeAccent),
+            const SizedBox(width: 8),
+            RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  fontSize: 24, 
+                  fontWeight: FontWeight.w900, 
+                  fontStyle: FontStyle.italic, 
+                  letterSpacing: 1.2
+                ),
+                children: [
+                  TextSpan(text: 'Sky', style: TextStyle(color: Colors.lightBlueAccent)),
+                  TextSpan(text: 'Rush', style: TextStyle(color: Colors.orangeAccent)),
+                ],
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.black,
         elevation: 0,
         actions: [
