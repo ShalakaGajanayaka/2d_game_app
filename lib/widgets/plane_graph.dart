@@ -36,7 +36,7 @@ class PlaneGraph extends StatelessWidget {
               child: Transform.rotate(
                 angle: -0.5, // slightly tilted up
                 child: Icon(
-                  Icons.flight,
+                  Icons.flutter_dash,
                   size: 48,
                   color: isCrashed ? Colors.red : Colors.redAccent,
                 ),
