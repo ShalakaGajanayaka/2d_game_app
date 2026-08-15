@@ -210,7 +210,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               itemCount: _history.length,
               itemBuilder: (context, index) {
                 final mult = _history[index];
-                Color color = mult < 2.0 ? Colors.red : (mult < 10.0 ? const Color(0xFF9b59b6) : const Color(0xFFe91e63));
+                Color color;
+                if (mult < 2.0) {
+                  color = Colors.red;
+                } else if (mult < 5.0) {
+                  color = const Color(0xFF9b59b6); // Purple
+                } else if (mult < 10.0) {
+                  color = Colors.blue;
+                } else if (mult < 20.0) {
+                  color = Colors.green;
+                } else if (mult < 50.0) {
+                  color = Colors.orange;
+                } else {
+                  color = const Color(0xFFFFD700); // Gold
+                }
                 return Container(
                   margin: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
