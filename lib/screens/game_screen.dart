@@ -374,44 +374,45 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       body: Column(
         children: [
           Container(
-            height: 40,
+            height: 52,
             width: double.infinity,
-            color: Colors.black,
-            child: ListView.builder(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _history.length,
-              itemBuilder: (context, index) {
-                final mult = _history[index];
-                Color color;
-                if (mult < 2.0) {
-                  color = Colors.red;
-                } else if (mult < 5.0) {
-                  color = const Color(0xFF9b59b6); // Purple
-                } else if (mult < 10.0) {
-                  color = Colors.blue;
-                } else if (mult < 20.0) {
-                  color = Colors.green;
-                } else if (mult < 50.0) {
-                  color = Colors.orange;
-                } else {
-                  color = const Color(0xFFFFD700); // Gold
-                }
-                return Container(
-                  margin: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: color, width: 1.5)
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${mult.toStringAsFixed(2)}x',
-                    style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                );
-              },
+              child: Wrap(
+                direction: Axis.vertical,
+                spacing: 6.0,
+                runSpacing: 6.0,
+                children: _history.map((mult) {
+                  Color color;
+                  if (mult < 2.0) {
+                    color = Colors.red;
+                  } else if (mult < 5.0) {
+                    color = const Color(0xFF9b59b6); // Purple
+                  } else if (mult < 10.0) {
+                    color = Colors.blue;
+                  } else if (mult < 20.0) {
+                    color = Colors.green;
+                  } else if (mult < 50.0) {
+                    color = Colors.orange;
+                  } else {
+                    color = const Color(0xFFFFD700); // Gold
+                  }
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: color, width: 1.0)
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${mult.toStringAsFixed(2)}x',
+                      style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           ),
           Expanded(
