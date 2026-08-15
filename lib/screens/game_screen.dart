@@ -183,7 +183,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Aviator Crash'),
+        title: const Text('SkyRush'),
         backgroundColor: Colors.black,
         elevation: 0,
         actions: [
