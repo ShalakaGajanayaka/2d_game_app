@@ -376,6 +376,112 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildBottomBetsPanel() {
+    final List<Map<String, dynamic>> fakeBets = [
+      {'name': 'johnd**', 'bet': 50.00, 'mult': 2.45, 'cashedOut': true},
+      {'name': 'aviator99', 'bet': 100.00, 'mult': null, 'cashedOut': false},
+      {'name': 'sky_king', 'bet': 10.00, 'mult': 1.80, 'cashedOut': true},
+      {'name': 'user4451', 'bet': 25.00, 'mult': 1.15, 'cashedOut': true},
+      {'name': 'pro_fly', 'bet': 200.00, 'mult': null, 'cashedOut': false},
+      {'name': 'guest_90', 'bet': 5.00, 'mult': 3.50, 'cashedOut': true},
+      {'name': 'bet_master', 'bet': 500.00, 'mult': null, 'cashedOut': false},
+      {'name': 'lucky_7', 'bet': 20.00, 'mult': 1.50, 'cashedOut': true},
+      {'name': 'noob_01', 'bet': 5.00, 'mult': null, 'cashedOut': false},
+      {'name': 'highroller', 'bet': 1000.00, 'mult': 1.10, 'cashedOut': true},
+    ];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFF334155), width: 1.5)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              color: Color(0xFF0F172A),
+            ),
+            child: const Text(
+              'LIVE BETS',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: fakeBets.length,
+              itemBuilder: (context, index) {
+                final bet = fakeBets[index];
+                final isCashedOut = bet['cashedOut'] as bool;
+                
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isCashedOut ? Colors.greenAccent.withOpacity(0.08) : Colors.transparent,
+                    border: index != fakeBets.length - 1 
+                        ? const Border(bottom: BorderSide(color: Color(0xFF334155), width: 0.5)) 
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          bet['name'],
+                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          '\$${bet['bet'].toStringAsFixed(2)}',
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: isCashedOut
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.greenAccent.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.greenAccent.withOpacity(0.5))
+                                ),
+                                child: Text(
+                                  '${bet['mult']}x',
+                                  style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              )
+                            : const Text(
+                                'WAITING',
+                                style: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                        ),
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -557,17 +663,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               ),
             ),
           ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                _buildBetPanel(1),
+                _buildBetPanel(2),
+              ],
+            ),
+          ),
           Expanded(
             flex: 2,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  Expanded(child: _buildBetPanel(1)),
-                  Expanded(child: _buildBetPanel(2)),
-                ],
-              ),
-            ),
+            child: _buildBottomBetsPanel(),
           ),
         ],
       ),
