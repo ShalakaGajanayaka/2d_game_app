@@ -35,10 +35,17 @@ class PlaneGraph extends StatelessWidget {
               top: y - 24,
               child: Transform.rotate(
                 angle: -0.5, // slightly tilted up
-                child: Icon(
-                  Icons.flutter_dash,
-                  size: 48,
-                  color: isCrashed ? Colors.red : Colors.redAccent,
+                child: Text(
+                  '🦅',
+                  style: TextStyle(
+                    fontSize: 48,
+                    shadows: [
+                      Shadow(
+                        color: isCrashed ? Colors.red : Colors.redAccent,
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
