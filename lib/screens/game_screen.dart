@@ -40,6 +40,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   final bool _showHistoryBar = false; // Set to true to show history bar again
   List<Map<String, dynamic>> _liveBets = [];
   final Set<String> _recentlyCashedOut = {};
+  bool _isConnected = false;
   
   late AnimationController _controller;
   int _countdown = 15;
@@ -83,6 +84,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     socket = IO.io(serverUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
+    });
+    
+    socket.onConnect((_) {
+      if (mounted) setState(() => _isConnected = true);
+    });
+
+    socket.onDisconnect((_) {
+      if (mounted) setState(() => _isConnected = false);
     });
     
     socket.connect();
@@ -490,6 +499,27 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     displayBets.addAll(_liveBets);
 
+    // Dynamic Rank & Sort:
+    // 1. Player's bets (isMe) always stay at the very top.
+    // 2. Cashed-out winners rank next, sorted by highest multiplier first.
+    // 3. Uncashed/playing bets follow below.
+    displayBets.sort((a, b) {
+      if (a['isMe'] == true && b['isMe'] != true) return -1;
+      if (b['isMe'] == true && a['isMe'] != true) return 1;
+
+      final aWon = a['cashedOut'] == true;
+      final bWon = b['cashedOut'] == true;
+      if (aWon && !bWon) return -1;
+      if (!aWon && bWon) return 1;
+
+      if (aWon && bWon) {
+        final aMult = ((a['cashedOutMultiplier'] ?? a['mult'] ?? 0) as num).toDouble();
+        final bMult = ((b['cashedOutMultiplier'] ?? b['mult'] ?? 0) as num).toDouble();
+        return bMult.compareTo(aMult);
+      }
+      return 0;
+    });
+
     // Calculate total round bets pool
     final double totalPool = displayBets.fold(0.0, (sum, b) => sum + (((b['bet'] ?? 0) as num).toDouble()));
 
@@ -828,6 +858,38 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(right: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: _isConnected ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _isConnected ? Colors.greenAccent.withOpacity(0.4) : Colors.redAccent.withOpacity(0.4)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _isConnected ? Colors.greenAccent : Colors.redAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _isConnected ? 'LIVE' : 'OFFLINE',
+                    style: TextStyle(
+                      color: _isConnected ? Colors.greenAccent : Colors.redAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           Center(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16.0),
