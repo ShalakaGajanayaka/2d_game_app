@@ -552,6 +552,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A), // Premium Dark Slate
       appBar: AppBar(
+        centerTitle: false,
+        titleSpacing: 16.0,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
