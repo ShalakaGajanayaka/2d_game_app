@@ -143,6 +143,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
            } 
            else if (newStatus == GameStatus.crashed) {
               _controller.stop();
+              _winMessageTimer?.cancel();
+              _showWinMessage = false;
               _currentMultiplier = data['currentMultiplier'].toDouble();
               _history.insert(0, _currentMultiplier);
               if (_history.length > 20) {
@@ -288,7 +290,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     });
     
     _winMessageTimer?.cancel();
-    _winMessageTimer = Timer(const Duration(seconds: 3), () {
+    _winMessageTimer = Timer(const Duration(milliseconds: 1800), () {
       if (mounted) {
         setState(() {
           _showWinMessage = false;
@@ -1043,8 +1045,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           ],
                         ),
                       ),
-                    if (_showWinMessage)
+                    if (_showWinMessage && _status != GameStatus.crashed)
                       Center(
+                        key: ValueKey('win_popup_${_winMultiplier}_${_winAmount}'),
                         child: TweenAnimationBuilder(
                           duration: const Duration(milliseconds: 600),
                           tween: Tween<double>(begin: 0.0, end: 1.0),
