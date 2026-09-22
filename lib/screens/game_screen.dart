@@ -175,6 +175,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       });
     });
 
+    socket.on('newLiveBetsBatch', (data) {
+      if (!mounted) return;
+      final rawList = data as List;
+      final batch = rawList.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      setState(() {
+        for (var newBet in batch) {
+          final exists = _liveBets.any((b) => b['id'] == newBet['id']);
+          if (!exists) {
+            _liveBets.add(newBet);
+          }
+        }
+      });
+    });
+
     socket.on('betCashedOut', (data) {
       if (!mounted) return;
       final botId = data['id']?.toString();
@@ -614,6 +628,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     child: Text('Waiting for bets...', style: TextStyle(color: Colors.white38, fontSize: 13)),
                   )
                 : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     itemCount: displayBets.length,
                     itemBuilder: (context, index) {
