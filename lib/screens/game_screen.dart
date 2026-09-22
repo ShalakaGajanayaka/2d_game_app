@@ -38,6 +38,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   double _currentMultiplier = 1.0;
   final List<double> _history = [];
   final bool _showHistoryBar = false; // Set to true to show history bar again
+  List<Map<String, dynamic>> _liveBets = [];
+  final Set<String> _recentlyCashedOut = {};
   
   late AnimationController _controller;
   int _countdown = 15;
@@ -92,6 +94,28 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         final serverStatus = data['status'];
         _countdown = data['countdown'];
         
+        if (data['bets'] != null) {
+          final incomingBets = List<Map<String, dynamic>>.from(
+            (data['bets'] as List).map((b) => Map<String, dynamic>.from(b)),
+          );
+          if (serverStatus == 'waiting' || _liveBets.isEmpty) {
+            _liveBets = incomingBets;
+            _recentlyCashedOut.clear();
+          } else {
+            for (var b in incomingBets) {
+              final idx = _liveBets.indexWhere((existing) => existing['id'] == b['id']);
+              if (idx != -1) {
+                _liveBets[idx]['cashedOut'] = b['cashedOut'];
+                if (b['cashedOutMultiplier'] != null) {
+                  _liveBets[idx]['cashedOutMultiplier'] = b['cashedOutMultiplier'];
+                }
+              } else {
+                _liveBets.add(b);
+              }
+            }
+          }
+        }
+        
         GameStatus newStatus;
         if (serverStatus == 'waiting') {
            newStatus = GameStatus.waiting;
@@ -127,6 +151,33 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
            _status = newStatus;
         }
       });
+    });
+
+    socket.on('betCashedOut', (data) {
+      if (!mounted) return;
+      final botId = data['id']?.toString();
+      final mult = (data['multiplier'] as num?)?.toDouble() ?? 1.0;
+      final win = (data['winAmount'] as num?)?.toDouble() ?? 0.0;
+      
+      if (botId != null) {
+        setState(() {
+          final index = _liveBets.indexWhere((b) => b['id'] == botId);
+          if (index != -1) {
+            _liveBets[index]['cashedOut'] = true;
+            _liveBets[index]['cashedOutMultiplier'] = mult;
+            _liveBets[index]['winAmount'] = win;
+            _recentlyCashedOut.add(botId);
+          }
+        });
+
+        Timer(const Duration(milliseconds: 1800), () {
+          if (mounted) {
+            setState(() {
+              _recentlyCashedOut.remove(botId);
+            });
+          }
+        });
+      }
     });
   }
 
@@ -399,18 +450,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildBottomBetsPanel() {
-    final List<Map<String, dynamic>> fakeBets = [
-      {'name': 'johnd**', 'bet': 50.00, 'mult': 2.45, 'cashedOut': true},
-      {'name': 'aviator99', 'bet': 100.00, 'mult': null, 'cashedOut': false},
-      {'name': 'sky_king', 'bet': 10.00, 'mult': 1.80, 'cashedOut': true},
-      {'name': 'user4451', 'bet': 25.00, 'mult': 1.15, 'cashedOut': true},
-      {'name': 'pro_fly', 'bet': 200.00, 'mult': null, 'cashedOut': false},
-      {'name': 'guest_90', 'bet': 5.00, 'mult': 3.50, 'cashedOut': true},
-      {'name': 'bet_master', 'bet': 500.00, 'mult': null, 'cashedOut': false},
-      {'name': 'lucky_7', 'bet': 20.00, 'mult': 1.50, 'cashedOut': true},
-      {'name': 'noob_01', 'bet': 5.00, 'mult': null, 'cashedOut': false},
-      {'name': 'highroller', 'bet': 1000.00, 'mult': 1.10, 'cashedOut': true},
-    ];
+    bool isCrashed = _status == GameStatus.crashed;
+    bool isPlaying = _status == GameStatus.playing || _status == GameStatus.spectating;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -429,75 +470,191 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               color: Color(0xFF0F172A),
             ),
-            child: const Text(
-              'LIVE BETS',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.zero,
-              itemCount: fakeBets.length,
-              itemBuilder: (context, index) {
-                final bet = fakeBets[index];
-                final isCashedOut = bet['cashedOut'] as bool;
-                
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
-                    color: isCashedOut ? Colors.greenAccent.withOpacity(0.08) : Colors.transparent,
-                    border: index != fakeBets.length - 1 
-                        ? const Border(bottom: BorderSide(color: Color(0xFF334155), width: 0.5)) 
-                        : null,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          bet['name'],
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          '\$${bet['bet'].toStringAsFixed(2)}',
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: isCashedOut
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.greenAccent.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: Colors.greenAccent.withOpacity(0.5))
-                                ),
-                                child: Text(
-                                  '${bet['mult']}x',
-                                  style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              )
-                            : const Text(
-                                'WAITING',
-                                style: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                        ),
+                    shape: BoxShape.circle,
+                    color: isPlaying ? Colors.greenAccent : (isCrashed ? Colors.redAccent : Colors.orangeAccent),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isPlaying ? Colors.greenAccent : (isCrashed ? Colors.redAccent : Colors.orangeAccent)).withOpacity(0.6),
+                        blurRadius: 6,
+                        spreadRadius: 2,
                       )
                     ],
                   ),
-                );
-              },
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'LIVE BETS (${_liveBets.length})',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                ),
+              ],
             ),
+          ),
+          Expanded(
+            child: _liveBets.isEmpty
+                ? const Center(
+                    child: Text('Waiting for bets...', style: TextStyle(color: Colors.white38, fontSize: 13)),
+                  )
+                : ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: _liveBets.length,
+                    itemBuilder: (context, index) {
+                      final bet = _liveBets[index];
+                      final isCashedOut = bet['cashedOut'] == true;
+                      final isRecent = _recentlyCashedOut.contains(bet['id']);
+                      final mult = bet['cashedOutMultiplier'] ?? bet['mult'];
+                      final double betAmt = ((bet['bet'] ?? 0) as num).toDouble();
+                      final double? winAmt = bet['winAmount'] != null
+                          ? ((bet['winAmount']) as num).toDouble()
+                          : (mult != null ? betAmt * (mult as num).toDouble() : null);
+
+                      Color rowBg = Colors.transparent;
+                      Border? rowBorder;
+                      
+                      if (isRecent) {
+                        rowBg = Colors.greenAccent.withOpacity(0.18);
+                        rowBorder = Border.all(color: Colors.greenAccent.withOpacity(0.8), width: 1);
+                      } else if (isCashedOut) {
+                        rowBg = Colors.greenAccent.withOpacity(0.06);
+                      } else if (isCrashed) {
+                        rowBg = Colors.redAccent.withOpacity(0.04);
+                      }
+
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeOut,
+                        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: rowBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: rowBorder ?? Border(bottom: BorderSide(color: const Color(0xFF334155).withOpacity(0.4), width: 0.5)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: isCashedOut 
+                                        ? Colors.greenAccent.withOpacity(0.2) 
+                                        : (isCrashed ? Colors.redAccent.withOpacity(0.2) : const Color(0xFF334155)),
+                                    child: Icon(
+                                      isCashedOut ? Icons.check : (isCrashed ? Icons.close : Icons.person),
+                                      size: 14,
+                                      color: isCashedOut 
+                                          ? Colors.greenAccent 
+                                          : (isCrashed ? Colors.redAccent : Colors.white70),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      bet['name']?.toString() ?? 'player',
+                                      style: TextStyle(
+                                        color: isCashedOut ? Colors.white : (isCrashed ? Colors.white38 : Colors.white70),
+                                        fontSize: 13,
+                                        fontWeight: isCashedOut ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                '\$${betAmt.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: isCashedOut ? Colors.white : (isCrashed ? Colors.white38 : Colors.white),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: isCrashed && !isCashedOut ? TextDecoration.lineThrough : null,
+                                  decorationColor: Colors.redAccent,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: isCashedOut
+                                    ? AnimatedScale(
+                                        duration: const Duration(milliseconds: 300),
+                                        scale: isRecent ? 1.08 : 1.0,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.greenAccent.withOpacity(isRecent ? 0.35 : 0.2),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: Colors.greenAccent.withOpacity(isRecent ? 0.9 : 0.5),
+                                              width: isRecent ? 1.5 : 1.0,
+                                            ),
+                                            boxShadow: isRecent
+                                                ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.4), blurRadius: 8, spreadRadius: 1)]
+                                                : null,
+                                          ),
+                                          child: Text(
+                                            winAmt != null 
+                                                ? '${mult != null ? "${(mult as num).toStringAsFixed(2)}x " : ""}+\$${winAmt.toStringAsFixed(2)}'
+                                                : '${mult ?? ""}x',
+                                            style: const TextStyle(
+                                              color: Colors.greenAccent,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : (isCrashed
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.redAccent.withOpacity(0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                                            ),
+                                            child: const Text(
+                                              'LOST',
+                                              style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w900),
+                                            ),
+                                          )
+                                        : (isPlaying
+                                            ? Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orangeAccent.withOpacity(0.12),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: const Text(
+                                                  'FLYING',
+                                                  style: TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                                                ),
+                                              )
+                                            : const Text(
+                                                'WAITING',
+                                                style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold),
+                                              ))),
+                              ),
+                            )
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
