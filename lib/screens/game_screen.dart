@@ -37,6 +37,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   
   double _currentMultiplier = 1.0;
   final List<double> _history = [];
+  final bool _showHistoryBar = false; // Set to true to show history bar again
   
   late AnimationController _controller;
   int _countdown = 15;
@@ -293,7 +294,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     const SizedBox(width: 8),
                     const Text('\$', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     SizedBox(
-                      width: 60,
+                      width: 50,
                       child: TextField(
                         controller: controller,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -503,6 +504,49 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildHistoryBar() {
+    return Container(
+      height: 30,
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _history.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          final mult = _history[index];
+          Color color;
+          if (mult < 2.0) {
+            color = Colors.redAccent;
+          } else if (mult < 5.0) {
+            color = const Color(0xFFC084FC); // Purple
+          } else if (mult < 10.0) {
+            color = Colors.lightBlueAccent;
+          } else if (mult < 20.0) {
+            color = Colors.greenAccent;
+          } else if (mult < 50.0) {
+            color = Colors.orangeAccent;
+          } else {
+            color = const Color(0xFFFFD700); // Gold
+          }
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withOpacity(0.8), width: 1.0),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '${mult.toStringAsFixed(2)}x',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -559,46 +603,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       ),
       body: Column(
         children: [
-          Container(
-            height: 30,
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _history.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 6),
-              itemBuilder: (context, index) {
-                final mult = _history[index];
-                Color color;
-                if (mult < 2.0) {
-                  color = Colors.redAccent;
-                } else if (mult < 5.0) {
-                  color = const Color(0xFFC084FC); // Purple
-                } else if (mult < 10.0) {
-                  color = Colors.lightBlueAccent;
-                } else if (mult < 20.0) {
-                  color = Colors.greenAccent;
-                } else if (mult < 50.0) {
-                  color = Colors.orangeAccent;
-                } else {
-                  color = const Color(0xFFFFD700); // Gold
-                }
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: color.withOpacity(0.8), width: 1.0),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${mult.toStringAsFixed(2)}x',
-                    style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                );
-              },
-            ),
-          ),
+          if (_showHistoryBar) _buildHistoryBar(),
           Expanded(
             flex: 3,
             child: Container(
