@@ -225,9 +225,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     if (!isPlaced || hasCashedOut) return;
     
     double winAmount = currentBet * _currentMultiplier;
+    final myId = betIndex == 1 ? 'my_bet_1' : 'my_bet_2';
     
     setState(() {
       _balance += winAmount;
+      _recentlyCashedOut.add(myId);
       if (betIndex == 1) {
         _hasCashedOut1 = true;
         _cashedOutMultiplier1 = _currentMultiplier;
@@ -239,6 +241,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       _showWinMessage = true;
       _winAmount = winAmount;
       _winMultiplier = _currentMultiplier;
+    });
+
+    Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) {
+        setState(() {
+          _recentlyCashedOut.remove(myId);
+        });
+      }
     });
     
     _winMessageTimer?.cancel();
@@ -453,6 +463,36 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     bool isCrashed = _status == GameStatus.crashed;
     bool isPlaying = _status == GameStatus.playing || _status == GameStatus.spectating;
 
+    // Combine player's own bets with community live bets
+    final List<Map<String, dynamic>> displayBets = [];
+    if (_isBetPlaced1) {
+      displayBets.add({
+        'id': 'my_bet_1',
+        'isMe': true,
+        'name': 'YOU (Bet 1)',
+        'bet': _betAmount1,
+        'cashedOut': _hasCashedOut1,
+        'cashedOutMultiplier': _hasCashedOut1 ? _cashedOutMultiplier1 : null,
+        'winAmount': _hasCashedOut1 ? _betAmount1 * _cashedOutMultiplier1 : null,
+      });
+    }
+    if (_isBetPlaced2) {
+      displayBets.add({
+        'id': 'my_bet_2',
+        'isMe': true,
+        'name': 'YOU (Bet 2)',
+        'bet': _betAmount2,
+        'cashedOut': _hasCashedOut2,
+        'cashedOutMultiplier': _hasCashedOut2 ? _cashedOutMultiplier2 : null,
+        'winAmount': _hasCashedOut2 ? _betAmount2 * _cashedOutMultiplier2 : null,
+      });
+    }
+
+    displayBets.addAll(_liveBets);
+
+    // Calculate total round bets pool
+    final double totalPool = displayBets.fold(0.0, (sum, b) => sum + (((b['bet'] ?? 0) as num).toDouble()));
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
@@ -463,7 +503,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             width: double.infinity,
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: Color(0xFF334155), width: 1.5)),
@@ -471,42 +511,63 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               color: Color(0xFF0F172A),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isPlaying ? Colors.greenAccent : (isCrashed ? Colors.redAccent : Colors.orangeAccent),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isPlaying ? Colors.greenAccent : (isCrashed ? Colors.redAccent : Colors.orangeAccent)).withOpacity(0.6),
+                            blurRadius: 6,
+                            spreadRadius: 2,
+                          )
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'ALL BETS (${displayBets.length})',
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                    ),
+                  ],
+                ),
                 Container(
-                  width: 8,
-                  height: 8,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isPlaying ? Colors.greenAccent : (isCrashed ? Colors.redAccent : Colors.orangeAccent),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isPlaying ? Colors.greenAccent : (isCrashed ? Colors.redAccent : Colors.orangeAccent)).withOpacity(0.6),
-                        blurRadius: 6,
-                        spreadRadius: 2,
-                      )
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('POOL: ', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(
+                        '\$${totalPool.toStringAsFixed(2)}',
+                        style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w900),
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'LIVE BETS (${_liveBets.length})',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.2),
                 ),
               ],
             ),
           ),
           Expanded(
-            child: _liveBets.isEmpty
+            child: displayBets.isEmpty
                 ? const Center(
                     child: Text('Waiting for bets...', style: TextStyle(color: Colors.white38, fontSize: 13)),
                   )
                 : ListView.builder(
-                    padding: EdgeInsets.zero,
-                    itemCount: _liveBets.length,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: displayBets.length,
                     itemBuilder: (context, index) {
-                      final bet = _liveBets[index];
+                      final bet = displayBets[index];
+                      final isMe = bet['isMe'] == true;
                       final isCashedOut = bet['cashedOut'] == true;
                       final isRecent = _recentlyCashedOut.contains(bet['id']);
                       final mult = bet['cashedOutMultiplier'] ?? bet['mult'];
@@ -519,8 +580,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       Border? rowBorder;
                       
                       if (isRecent) {
-                        rowBg = Colors.greenAccent.withOpacity(0.18);
-                        rowBorder = Border.all(color: Colors.greenAccent.withOpacity(0.8), width: 1);
+                        rowBg = Colors.greenAccent.withOpacity(0.22);
+                        rowBorder = Border.all(color: Colors.greenAccent.withOpacity(0.85), width: 1.2);
+                      } else if (isMe) {
+                        rowBg = Colors.lightBlueAccent.withOpacity(0.08);
+                        rowBorder = Border.all(color: Colors.lightBlueAccent.withOpacity(0.5), width: 1.0);
                       } else if (isCashedOut) {
                         rowBg = Colors.greenAccent.withOpacity(0.06);
                       } else if (isCrashed) {
@@ -530,8 +594,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 350),
                         curve: Curves.easeOut,
-                        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: rowBg,
                           borderRadius: BorderRadius.circular(10),
@@ -546,28 +610,55 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 children: [
                                   CircleAvatar(
                                     radius: 12,
-                                    backgroundColor: isCashedOut 
-                                        ? Colors.greenAccent.withOpacity(0.2) 
-                                        : (isCrashed ? Colors.redAccent.withOpacity(0.2) : const Color(0xFF334155)),
+                                    backgroundColor: isMe
+                                        ? Colors.orangeAccent.withOpacity(0.25)
+                                        : (isCashedOut 
+                                            ? Colors.greenAccent.withOpacity(0.2) 
+                                            : (isCrashed ? Colors.redAccent.withOpacity(0.2) : const Color(0xFF334155))),
                                     child: Icon(
-                                      isCashedOut ? Icons.check : (isCrashed ? Icons.close : Icons.person),
+                                      isMe 
+                                          ? Icons.star 
+                                          : (isCashedOut ? Icons.check : (isCrashed ? Icons.close : Icons.person)),
                                       size: 14,
-                                      color: isCashedOut 
-                                          ? Colors.greenAccent 
-                                          : (isCrashed ? Colors.redAccent : Colors.white70),
+                                      color: isMe
+                                          ? Colors.orangeAccent
+                                          : (isCashedOut 
+                                              ? Colors.greenAccent 
+                                              : (isCrashed ? Colors.redAccent : Colors.white70)),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      bet['name']?.toString() ?? 'player',
-                                      style: TextStyle(
-                                        color: isCashedOut ? Colors.white : (isCrashed ? Colors.white38 : Colors.white70),
-                                        fontSize: 13,
-                                        fontWeight: isCashedOut ? FontWeight.w600 : FontWeight.normal,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    child: isMe
+                                        ? Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orangeAccent.withOpacity(0.2),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(color: Colors.orangeAccent.withOpacity(0.6)),
+                                                ),
+                                                child: Text(
+                                                  bet['name']?.toString() ?? 'YOU',
+                                                  style: const TextStyle(
+                                                    color: Colors.orangeAccent,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : Text(
+                                            bet['name']?.toString() ?? 'player',
+                                            style: TextStyle(
+                                              color: isCashedOut ? Colors.white : (isCrashed ? Colors.white38 : Colors.white70),
+                                              fontSize: 13,
+                                              fontWeight: isCashedOut ? FontWeight.w600 : FontWeight.normal,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                   ),
                                 ],
                               ),
@@ -577,7 +668,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               child: Text(
                                 '\$${betAmt.toStringAsFixed(2)}',
                                 style: TextStyle(
-                                  color: isCashedOut ? Colors.white : (isCrashed ? Colors.white38 : Colors.white),
+                                  color: isMe 
+                                      ? Colors.white 
+                                      : (isCashedOut ? Colors.white : (isCrashed ? Colors.white38 : Colors.white)),
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   decoration: isCrashed && !isCashedOut ? TextDecoration.lineThrough : null,
