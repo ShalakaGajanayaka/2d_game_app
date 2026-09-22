@@ -107,9 +107,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           final incomingBets = List<Map<String, dynamic>>.from(
             (data['bets'] as List).map((b) => Map<String, dynamic>.from(b)),
           );
-          if (serverStatus == 'waiting' || _liveBets.isEmpty) {
+          if (serverStatus == 'waiting' && _status != GameStatus.waiting) {
             _liveBets = incomingBets;
             _recentlyCashedOut.clear();
+          } else if (_liveBets.isEmpty) {
+            _liveBets = incomingBets;
           } else {
             for (var b in incomingBets) {
               final idx = _liveBets.indexWhere((existing) => existing['id'] == b['id']);
@@ -158,6 +160,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _hasCashedOut2 = false;
            }
            _status = newStatus;
+        }
+      });
+    });
+
+    socket.on('newLiveBet', (data) {
+      if (!mounted) return;
+      final newBet = Map<String, dynamic>.from(data as Map);
+      setState(() {
+        final exists = _liveBets.any((b) => b['id'] == newBet['id']);
+        if (!exists) {
+          _liveBets.add(newBet);
         }
       });
     });
@@ -500,24 +513,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     displayBets.addAll(_liveBets);
 
     // Dynamic Rank & Sort:
-    // 1. Player's bets (isMe) always stay at the very top.
-    // 2. Cashed-out winners rank next, sorted by highest multiplier first.
-    // 3. Uncashed/playing bets follow below.
+    // 1. Player's bets (isMe) always stay at the very top (#1).
+    // 2. If flight started (PLAYING or CRASHED): Cashed-out winners rank top by highest multiplier.
+    // 3. If in pre-game countdown (WAITING): High-Rollers rank top by Highest Bet Amount ($1000, $500, $200...).
+    final bool isWaiting = _status == GameStatus.waiting;
+
     displayBets.sort((a, b) {
       if (a['isMe'] == true && b['isMe'] != true) return -1;
       if (b['isMe'] == true && a['isMe'] != true) return 1;
 
-      final aWon = a['cashedOut'] == true;
-      final bWon = b['cashedOut'] == true;
-      if (aWon && !bWon) return -1;
-      if (!aWon && bWon) return 1;
+      if (!isWaiting) {
+        final aWon = a['cashedOut'] == true;
+        final bWon = b['cashedOut'] == true;
+        if (aWon && !bWon) return -1;
+        if (!aWon && bWon) return 1;
 
-      if (aWon && bWon) {
-        final aMult = ((a['cashedOutMultiplier'] ?? a['mult'] ?? 0) as num).toDouble();
-        final bMult = ((b['cashedOutMultiplier'] ?? b['mult'] ?? 0) as num).toDouble();
-        return bMult.compareTo(aMult);
+        if (aWon && bWon) {
+          final aMult = ((a['cashedOutMultiplier'] ?? a['mult'] ?? 0) as num).toDouble();
+          final bMult = ((b['cashedOutMultiplier'] ?? b['mult'] ?? 0) as num).toDouble();
+          return bMult.compareTo(aMult);
+        }
       }
-      return 0;
+
+      // During Pre-Game (WAITING): Sort by Highest Bet Amount descending
+      final double aBet = ((a['bet'] ?? 0) as num).toDouble();
+      final double bBet = ((b['bet'] ?? 0) as num).toDouble();
+      return bBet.compareTo(aBet);
     });
 
     // Calculate total round bets pool
