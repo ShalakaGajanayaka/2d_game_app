@@ -543,13 +543,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         if (!aWon && bWon) return 1;
 
         if (aWon && bWon) {
-          final aMult = ((a['cashedOutMultiplier'] ?? a['mult'] ?? 0) as num).toDouble();
-          final bMult = ((b['cashedOutMultiplier'] ?? b['mult'] ?? 0) as num).toDouble();
+          // Sort by Highest Cash Win ($ Win Amount) descending:
+          final double aBetAmt = ((a['bet'] ?? 0) as num).toDouble();
+          final double aMult = ((a['cashedOutMultiplier'] ?? a['mult'] ?? 0) as num).toDouble();
+          final double aWin = a['winAmount'] != null ? ((a['winAmount']) as num).toDouble() : (aBetAmt * aMult);
+
+          final double bBetAmt = ((b['bet'] ?? 0) as num).toDouble();
+          final double bMult = ((b['cashedOutMultiplier'] ?? b['mult'] ?? 0) as num).toDouble();
+          final double bWin = b['winAmount'] != null ? ((b['winAmount']) as num).toDouble() : (bBetAmt * bMult);
+
+          if (bWin != aWin) {
+            return bWin.compareTo(aWin); // Higher cash winnings float to top!
+          }
+          // Tie-breaker: higher multiplier
           return bMult.compareTo(aMult);
         }
       }
 
-      // During Pre-Game (WAITING): Sort by Highest Bet Amount descending
+      // During Pre-Game (WAITING) and uncashed bets: Sort by Highest Bet Amount descending
       final double aBet = ((a['bet'] ?? 0) as num).toDouble();
       final double bBet = ((b['bet'] ?? 0) as num).toDouble();
       return bBet.compareTo(aBet);
