@@ -16,6 +16,7 @@ import '../widgets/plane_graph.dart';
 import '../widgets/currency_picker_sheet.dart';
 import '../models/country_code.dart';
 import '../widgets/country_code_picker_sheet.dart';
+import '../models/live_bets_adapter.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -694,7 +695,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: [20, 50, 100, 200, 500].map((amount) {
+                    children: (_userCurrency.code == 'LKR'
+                            ? [50, 100, 200, 500, 1000]
+                            : (_userCurrency.code == 'INR'
+                                ? [50, 100, 200, 500, 1000]
+                                : [5, 10, 20, 50, 100]))
+                        .map((amount) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4.0),
                         child: InkWell(
@@ -798,12 +804,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       });
     }
 
-    displayBets.addAll(_liveBets);
+    // Localize community bets according to currently active _userCurrency
+    for (var rawBet in _liveBets) {
+      displayBets.add(LiveBetsAdapter.localize(rawBet, _userCurrency.code));
+    }
 
     // Dynamic Rank & Sort:
     // 1. Player's bets (isMe) always stay at the very top (#1).
     // 2. If flight started (PLAYING or CRASHED): Cashed-out winners rank top by highest multiplier.
-    // 3. If in pre-game countdown (WAITING): High-Rollers rank top by Highest Bet Amount ($1000, $500, $200...).
+    // 3. If in pre-game countdown (WAITING): High-Rollers rank top by Highest Bet Amount.
     final bool isWaiting = _status == GameStatus.waiting;
 
     displayBets.sort((a, b) {
@@ -897,7 +906,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     children: [
                       const Text('POOL: ', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
                       Text(
-                        '\$${totalPool.toStringAsFixed(2)}',
+                        '${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(totalPool)}',
                         style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w900),
                       ),
                     ],
@@ -1017,7 +1026,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                             Expanded(
                               flex: 2,
                               child: Text(
-                                '\$${betAmt.toStringAsFixed(2)}',
+                                '${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(betAmt)}',
                                 style: TextStyle(
                                   color: isMe 
                                       ? Colors.white 
@@ -1053,7 +1062,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                           ),
                                           child: Text(
                                             winAmt != null 
-                                                ? '${mult != null ? "${(mult as num).toStringAsFixed(2)}x " : ""}+\$${winAmt.toStringAsFixed(2)}'
+                                                ? '${mult != null ? "${(mult as num).toStringAsFixed(2)}x " : ""}+${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(winAmt)}'
                                                 : '${mult ?? ""}x',
                                             style: const TextStyle(
                                               color: Colors.greenAccent,
