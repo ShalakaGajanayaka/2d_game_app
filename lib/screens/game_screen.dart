@@ -1139,7 +1139,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F172A),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        border: Border.all(
+                          color: (errorMessage != null && errorMessage!.toLowerCase().contains('already registered'))
+                              ? Colors.redAccent
+                              : const Color(0xFF334155),
+                          width: (errorMessage != null && errorMessage!.toLowerCase().contains('already registered')) ? 1.5 : 1.0,
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -1320,22 +1325,58 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   if (errorMessage != null) ...[
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: Colors.redAccent.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              errorMessage!,
-                              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  errorMessage!,
+                                  style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
                           ),
+                          if (!isLoginTab && errorMessage!.toLowerCase().contains('already registered')) ...[
+                            const SizedBox(height: 10),
+                            InkWell(
+                              onTap: () {
+                                setDialogState(() {
+                                  isLoginTab = true;
+                                  errorMessage = null;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF38BDF8).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFF38BDF8)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Already have an account? Sign In',
+                                      style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Icon(Icons.arrow_forward, color: Color(0xFF38BDF8), size: 14),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
