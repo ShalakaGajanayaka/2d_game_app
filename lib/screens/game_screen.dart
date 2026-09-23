@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../models/game_state.dart';
 import '../widgets/plane_graph.dart';
@@ -20,6 +22,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   GameStatus _status = GameStatus.waiting;
   
   double _balance = 1000.0;
+  bool _isLoggedIn = false;
+  Map<String, dynamic>? _currentUser;
+  String? _authToken;
   
   // Bet 1
   double _betAmount1 = 10.0;
@@ -74,12 +79,105 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     _initSocket();
   }
 
-  void _initSocket() {
-    String serverUrl = dotenv.env['SERVER_API_URL']!;
+  String _getServerBaseUrl() {
+    String serverUrl = dotenv.env['SERVER_API_URL'] ?? 'http://localhost:3000';
     if (!kIsWeb && Platform.isAndroid) {
       serverUrl = serverUrl.replaceFirst('localhost', '10.0.2.2');
       serverUrl = serverUrl.replaceFirst('127.0.0.1', '10.0.2.2');
     }
+    return serverUrl;
+  }
+
+  Future<void> _syncBalanceToServer({double? winDelta, double? mult}) async {
+    if (!_isLoggedIn || _authToken == null) return;
+    try {
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/update-balance');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'token': _authToken,
+          'balance': _balance,
+          'winDelta': winDelta,
+          'mult': mult,
+        }),
+      );
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = jsonDecode(res.body);
+        if (data['user'] != null && mounted) {
+          setState(() {
+            _currentUser = Map<String, dynamic>.from(data['user']);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to sync balance: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> _loginUser(String username, String password) async {
+    try {
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/login');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': username, 'password': password}),
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        setState(() {
+          _isLoggedIn = true;
+          _authToken = data['token'];
+          _currentUser = Map<String, dynamic>.from(data['user']);
+          _balance = (_currentUser!['balance'] as num).toDouble();
+        });
+        return {'success': true};
+      } else {
+        final msg = data['message'] is List ? (data['message'] as List).join(', ') : data['message'].toString();
+        return {'success': false, 'message': msg};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _registerUser(String username, String password) async {
+    try {
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/register');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': username, 'password': password}),
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        setState(() {
+          _isLoggedIn = true;
+          _authToken = data['token'];
+          _currentUser = Map<String, dynamic>.from(data['user']);
+          _balance = (_currentUser!['balance'] as num).toDouble();
+        });
+        return {'success': true};
+      } else {
+        final msg = data['message'] is List ? (data['message'] as List).join(', ') : data['message'].toString();
+        return {'success': false, 'message': msg};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  void _logoutUser() {
+    setState(() {
+      _isLoggedIn = false;
+      _authToken = null;
+      _currentUser = null;
+      _balance = 1000.0;
+    });
+  }
+
+  void _initSocket() {
+    String serverUrl = _getServerBaseUrl();
 
     socket = IO.io(serverUrl, <String, dynamic>{
       'transports': ['websocket'],
@@ -251,6 +349,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           }
         }
       });
+      _syncBalanceToServer();
     }
   }
 
@@ -280,6 +379,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       _winAmount = winAmount;
       _winMultiplier = _currentMultiplier;
     });
+
+    _syncBalanceToServer(winDelta: winAmount - currentBet, mult: _currentMultiplier);
 
     Timer(const Duration(milliseconds: 1800), () {
       if (mounted) {
@@ -584,8 +685,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             width: double.infinity,
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFF334155), width: 1.5)),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
               color: Color(0xFF0F172A),
             ),
             child: Row(
@@ -635,6 +735,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               ],
             ),
           ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFF334155)),
           Expanded(
             child: displayBets.isEmpty
                 ? const Center(
@@ -678,7 +779,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         decoration: BoxDecoration(
                           color: rowBg,
                           borderRadius: BorderRadius.circular(10),
-                          border: rowBorder ?? Border(bottom: BorderSide(color: const Color(0xFF334155).withOpacity(0.4), width: 0.5)),
+                          border: rowBorder ?? Border.all(color: const Color(0xFF334155).withOpacity(0.3), width: 0.5),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -876,6 +977,488 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _showAuthDialog() {
+    final userController = TextEditingController();
+    final passController = TextEditingController();
+    bool isLoginTab = true;
+    bool isLoading = false;
+    String? errorMessage;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Dialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+              side: const BorderSide(color: Color(0xFF334155), width: 1.5),
+            ),
+            child: Container(
+              width: 380,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF38BDF8).withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.flight_takeoff, color: Color(0xFF38BDF8), size: 28),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'SkyRush Account',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF334155)),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                isLoginTab = true;
+                                errorMessage = null;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isLoginTab ? const Color(0xFF38BDF8) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  color: isLoginTab ? const Color(0xFF0F172A) : Colors.white60,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                isLoginTab = false;
+                                errorMessage = null;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: !isLoginTab ? const Color(0xFF38BDF8) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Register',
+                                style: TextStyle(
+                                  color: !isLoginTab ? const Color(0xFF0F172A) : Colors.white60,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (!isLoginTab)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.card_giftcard, color: Color(0xFF10B981), size: 18),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Get \$1,000 welcome balance instantly!',
+                              style: TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  TextField(
+                    controller: userController,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Username',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      prefixIcon: const Icon(Icons.person, color: Color(0xFF38BDF8), size: 20),
+                      filled: true,
+                      fillColor: const Color(0xFF0F172A),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF334155)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: passController,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Password',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      prefixIcon: const Icon(Icons.lock, color: Color(0xFF38BDF8), size: 20),
+                      filled: true,
+                      fillColor: const Color(0xFF0F172A),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF334155)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                      ),
+                    ),
+                  ),
+
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              errorMessage!,
+                              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF38BDF8),
+                        foregroundColor: const Color(0xFF0F172A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 4,
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              final u = userController.text.trim();
+                              final p = passController.text.trim();
+                              if (u.isEmpty || p.isEmpty) {
+                                setDialogState(() => errorMessage = 'Please fill in both fields');
+                                return;
+                              }
+                              setDialogState(() {
+                                isLoading = true;
+                                errorMessage = null;
+                              });
+
+                              final result = isLoginTab
+                                  ? await _loginUser(u, p)
+                                  : await _registerUser(u, p);
+
+                              if (!mounted) return;
+                              if (result['success'] == true) {
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx).pop();
+                                }
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Welcome, $u! 🎉'),
+                                      backgroundColor: const Color(0xFF10B981),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                setDialogState(() {
+                                  isLoading = false;
+                                  errorMessage = result['message'] ?? 'Authentication failed';
+                                });
+                              }
+                            },
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Color(0xFF0F172A), strokeWidth: 2.5),
+                            )
+                          : Text(
+                              isLoginTab ? 'Sign In' : 'Create Account & Play',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Continue as Guest', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showProfileSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0F172A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final username = _currentUser?['username'] ?? 'Aviator Pilot';
+        final gamesPlayed = _currentUser?['gamesPlayed'] ?? 0;
+        final totalWon = ((_currentUser?['totalWon'] as num?)?.toDouble() ?? 0.0);
+        final bestMult = ((_currentUser?['bestMultiplier'] as num?)?.toDouble() ?? 1.0);
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF6366F1)]),
+                          ),
+                          child: CircleAvatar(
+                            radius: 28,
+                            backgroundColor: const Color(0xFF1E293B),
+                            child: Text(
+                              username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                              style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 22),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                username,
+                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.star, color: Colors.amber, size: 14),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'VIP AVIATOR PILOT',
+                                      style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildProfileStatCard('Wallet Balance', '\$${_balance.toStringAsFixed(2)}', Icons.account_balance_wallet, const Color(0xFF10B981)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildProfileStatCard('Games Played', '$gamesPlayed', Icons.sports_esports, const Color(0xFF38BDF8)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildProfileStatCard('Total Won', '\$${totalWon.toStringAsFixed(2)}', Icons.emoji_events, const Color(0xFFF59E0B)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildProfileStatCard('Best Multiplier', '${bestMult.toStringAsFixed(2)}x', Icons.rocket_launch, const Color(0xFFA855F7)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.add_circle_outline, color: Color(0xFF10B981), size: 18),
+                        label: const Text('Top Up + \$500 Free Demo Credits', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _balance += 500.0;
+                          });
+                          _syncBalanceToServer();
+                          setSheetState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('+\$500 Demo Credits added! 💰'),
+                              backgroundColor: Color(0xFF10B981),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.logout, color: Colors.redAccent, size: 18),
+                        label: const Text('Log Out', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          _logoutUser();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Logged out. Reverted to Guest Mode.'),
+                              backgroundColor: Colors.blueGrey,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileStatCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                const SizedBox(height: 2),
+                Text(value, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -941,7 +1524,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ),
           Center(
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16.0),
+              margin: const EdgeInsets.only(right: 8.0),
               padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
@@ -961,7 +1544,63 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 ],
               ),
             ),
-          )
+          ),
+          // Profile Avatar Icon (Tap to Login / View Profile)
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: InkWell(
+                onTap: () {
+                  if (_isLoggedIn) {
+                    _showProfileSheet();
+                  } else {
+                    _showAuthDialog();
+                  }
+                },
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: _isLoggedIn
+                        ? const LinearGradient(
+                            colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : const LinearGradient(
+                            colors: [Colors.white38, Colors.white12],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _isLoggedIn
+                            ? const Color(0xFF38BDF8).withOpacity(0.5)
+                            : Colors.black26,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: const Color(0xFF1E293B),
+                    child: _isLoggedIn
+                        ? Text(
+                            ((_currentUser?['username'] ?? 'U') as String).substring(0, 1).toUpperCase(),
+                            style: const TextStyle(
+                              color: Color(0xFF38BDF8),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          )
+                        : const Icon(Icons.person_outline, size: 18, color: Colors.white70),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       body: Column(
