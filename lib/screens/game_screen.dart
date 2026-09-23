@@ -967,8 +967,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
+                            // Left: Player Avatar & Name (flex: 4)
                             Expanded(
-                              flex: 3,
+                              flex: 4,
                               child: Row(
                                 children: [
                                   CircleAvatar(
@@ -1026,84 +1027,110 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 ],
                               ),
                             ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                '${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(betAmt)}',
-                                style: TextStyle(
-                                  color: isMe 
-                                      ? Colors.white 
-                                      : (isCashedOut ? Colors.white : (isCrashed ? Colors.white38 : Colors.white)),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  decoration: isCrashed && !isCashedOut ? TextDecoration.lineThrough : null,
-                                  decorationColor: Colors.redAccent,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
+                            // Middle: Bet Amount (flex: 3, protected by FittedBox)
                             Expanded(
                               flex: 3,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(betAmt)}',
+                                    style: TextStyle(
+                                      color: isMe 
+                                          ? Colors.white 
+                                          : (isCashedOut ? Colors.white : (isCrashed ? Colors.white38 : Colors.white)),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: isCrashed && !isCashedOut ? TextDecoration.lineThrough : null,
+                                      decorationColor: Colors.redAccent,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Right: Cashout Multiplier & Profit Badge (flex: 4, protected by FittedBox)
+                            Expanded(
+                              flex: 4,
                               child: Align(
                                 alignment: Alignment.centerRight,
-                                child: isCashedOut
-                                    ? AnimatedScale(
-                                        duration: const Duration(milliseconds: 300),
-                                        scale: isRecent ? 1.08 : 1.0,
-                                        child: Container(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: isCashedOut
+                                      ? AnimatedContainer(
+                                          duration: const Duration(milliseconds: 300),
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: Colors.greenAccent.withOpacity(isRecent ? 0.35 : 0.2),
+                                            color: isRecent 
+                                                ? const Color(0xFF10B981).withOpacity(0.35) 
+                                                : const Color(0xFF10B981).withOpacity(0.2),
                                             borderRadius: BorderRadius.circular(8),
                                             border: Border.all(
-                                              color: Colors.greenAccent.withOpacity(isRecent ? 0.9 : 0.5),
+                                              color: isRecent ? Colors.greenAccent : const Color(0xFF10B981).withOpacity(0.6),
                                               width: isRecent ? 1.5 : 1.0,
                                             ),
                                             boxShadow: isRecent
                                                 ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.4), blurRadius: 8, spreadRadius: 1)]
                                                 : null,
                                           ),
-                                          child: Text(
-                                            winAmt != null 
-                                                ? '${mult != null ? "${(mult as num).toStringAsFixed(2)}x " : ""}+${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(winAmt)}'
-                                                : '${mult ?? ""}x',
-                                            style: const TextStyle(
-                                              color: Colors.greenAccent,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w900,
-                                            ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                mult != null ? '${(mult as num).toStringAsFixed(2)}x' : '',
+                                                style: const TextStyle(
+                                                  color: Colors.greenAccent,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w900,
+                                                ),
+                                              ),
+                                              if (winAmt != null) ...[
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '+${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(winAmt)}',
+                                                  style: TextStyle(
+                                                    color: Colors.greenAccent.shade100,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
-                                        ),
-                                      )
-                                    : (isCrashed
-                                        ? Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: Colors.redAccent.withOpacity(0.15),
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
-                                            ),
-                                            child: const Text(
-                                              'LOST',
-                                              style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w900),
-                                            ),
-                                          )
-                                        : (isPlaying
-                                            ? Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.orangeAccent.withOpacity(0.12),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: const Text(
-                                                  'FLYING',
-                                                  style: TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold),
-                                                ),
-                                              )
-                                            : const Text(
-                                                'WAITING',
-                                                style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold),
-                                              ))),
+                                        )
+                                      : (isCrashed
+                                          ? Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: Colors.redAccent.withOpacity(0.15),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                                              ),
+                                              child: const Text(
+                                                'LOST',
+                                                style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w900),
+                                              ),
+                                            )
+                                          : (isPlaying
+                                              ? Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.orangeAccent.withOpacity(0.12),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: const Text(
+                                                    'FLYING',
+                                                    style: TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                                                  ),
+                                                )
+                                              : const Text(
+                                                  'WAITING',
+                                                  style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold),
+                                                ))),
+                                ),
                               ),
                             )
                           ],
