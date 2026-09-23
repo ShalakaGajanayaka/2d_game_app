@@ -92,15 +92,17 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
               children: [
                 const Icon(Icons.language, color: Color(0xFF38BDF8), size: 22),
                 const SizedBox(width: 10),
-                const Text(
-                  'Select Currency (160+ World Currencies)',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                const Expanded(
+                  child: Text(
+                    'Select Currency (160+ World Currencies)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
@@ -227,48 +229,51 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                               ? Border.all(color: const Color(0xFF38BDF8).withOpacity(0.5))
                               : null,
                         ),
-                        child: ListTile(
-                          dense: true,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          leading: Text(cur.flag, style: const TextStyle(fontSize: 24)),
-                          title: Row(
-                            children: [
-                              Text(
-                                cur.code,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1E293B),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: const Color(0xFF334155)),
-                                ),
-                                child: Text(
-                                  cur.symbol,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: ListTile(
+                            dense: true,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            leading: Text(cur.flag, style: const TextStyle(fontSize: 24)),
+                            title: Row(
+                              children: [
+                                Text(
+                                  cur.code,
                                   style: const TextStyle(
-                                    color: Color(0xFF38BDF8),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1E293B),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFF334155)),
+                                  ),
+                                  child: Text(
+                                    cur.symbol,
+                                    style: const TextStyle(
+                                      color: Color(0xFF38BDF8),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: Text(
+                              cur.name,
+                              style: const TextStyle(color: Colors.white54, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: isSelected
+                                ? const Icon(Icons.check_circle, color: Color(0xFF38BDF8), size: 20)
+                                : null,
+                            onTap: () => widget.onCurrencySelected(cur),
                           ),
-                          subtitle: Text(
-                            cur.name,
-                            style: const TextStyle(color: Colors.white54, fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: isSelected
-                              ? const Icon(Icons.check_circle, color: Color(0xFF38BDF8), size: 20)
-                              : null,
-                          onTap: () => widget.onCurrencySelected(cur),
                         ),
                       );
                     },
