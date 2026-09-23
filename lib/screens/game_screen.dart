@@ -1362,24 +1362,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     const SizedBox(height: 16),
                   ],
 
-                  // Welcome Bonus Banner (Preserved in code, hidden per user specification)
-                  if (!isForgotPasswordMode && !isLoginTab && showWelcomeBanner)
+                  // Security Banner for Registration
+                  if (!isForgotPasswordMode && !isLoginTab)
                     Container(
-                      margin: const EdgeInsets.only(bottom: 14),
+                      margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        color: const Color(0xFF38BDF8).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                        border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.35)),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
-                          const Icon(Icons.card_giftcard, color: Color(0xFF10B981), size: 18),
-                          const SizedBox(width: 8),
+                          Icon(Icons.verified_user_outlined, color: Color(0xFF38BDF8), size: 18),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Get ${regCurrency.symbol}1,000 welcome balance instantly!',
-                              style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w600),
+                              'Create your secure account to start playing!',
+                              style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
