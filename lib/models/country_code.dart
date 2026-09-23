@@ -408,7 +408,7 @@ class CountryCode {
   /// Auto-match a country code based on ISO 2-letter country code (e.g. 'LK', 'US')
   static CountryCode fromCountryCode(String code) {
     final clean = code.trim().toUpperCase();
-    return supportedCountries.firstWhere(
+    return all.firstWhere(
       (c) => c.code.toUpperCase() == clean,
       orElse: () => defaultCountry,
     );
