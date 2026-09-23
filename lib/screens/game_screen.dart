@@ -17,6 +17,8 @@ import '../widgets/currency_picker_sheet.dart';
 import '../models/country_code.dart';
 import '../widgets/country_code_picker_sheet.dart';
 import '../widgets/deposit_sheet.dart';
+import '../widgets/withdrawal_sheet.dart';
+import '../widgets/transaction_history_sheet.dart';
 import '../models/live_bets_adapter.dart';
 
 class GameScreen extends StatefulWidget {
@@ -2047,6 +2049,42 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _showWithdrawalSheet() {
+    if (!_isLoggedIn || _authToken == null) {
+      _showAuthDialog();
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => WithdrawalSheet(
+        currency: _userCurrency,
+        currentBalance: _balance,
+        authToken: _authToken!,
+        serverBaseUrl: _getServerBaseUrl(),
+        onWithdrawalSubmitted: () {},
+      ),
+    );
+  }
+
+  void _showTransactionHistorySheet() {
+    if (!_isLoggedIn || _authToken == null) {
+      _showAuthDialog();
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => TransactionHistorySheet(
+        currency: _userCurrency,
+        authToken: _authToken!,
+        serverBaseUrl: _getServerBaseUrl(),
+      ),
+    );
+  }
+
   void _showProfileSheet() {
     showModalBottomSheet(
       context: context,
@@ -2182,27 +2220,81 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     ),
                     const SizedBox(height: 20),
 
+                    // Deposit & Withdraw side-by-side
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+                              label: const Text(
+                                'Deposit',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 3,
+                              ),
+                              onPressed: () {
+                                Navigator.of(ctx).pop();
+                                _showDepositSheet();
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 18),
+                              label: const Text(
+                                'Withdraw',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF43F5E),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 3,
+                              ),
+                              onPressed: () {
+                                Navigator.of(ctx).pop();
+                                _showWithdrawalSheet();
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Transaction History Button
                     SizedBox(
                       width: double.infinity,
-                      height: 44,
+                      height: 42,
                       child: ElevatedButton.icon(
-                        icon: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
+                        icon: const Icon(Icons.receipt_long, color: Color(0xFF38BDF8), size: 18),
                         label: const Text(
-                          'Deposit Funds (iPay / UPay / Bank)',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          'Transaction History (Deposits & Payouts)',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF10B981),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 3,
+                          backgroundColor: const Color(0xFF1E293B),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: const Color(0xFF38BDF8).withOpacity(0.3)),
+                          ),
+                          elevation: 1,
                         ),
                         onPressed: () {
                           Navigator.of(ctx).pop();
-                          _showDepositSheet();
+                          _showTransactionHistorySheet();
                         },
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
                     SizedBox(
                       width: double.infinity,
@@ -2374,8 +2466,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 onTap: _showDepositSheet,
                                 borderRadius: BorderRadius.circular(20),
                                 child: Container(
-                                  margin: const EdgeInsets.only(right: 8.0),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                                  margin: const EdgeInsets.only(right: 6.0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 11.0, vertical: 6.0),
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
                                     borderRadius: BorderRadius.circular(20),
@@ -2385,11 +2477,36 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                   ),
                                   child: const Row(
                                     children: [
-                                      Icon(Icons.add, size: 16, color: Colors.white),
+                                      Icon(Icons.add, size: 15, color: Colors.white),
                                       SizedBox(width: 4),
                                       Text(
                                         'Deposit',
-                                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              InkWell(
+                                onTap: _showWithdrawalSheet,
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8.0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 11.0, vertical: 6.0),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(colors: [Color(0xFFF43F5E), Color(0xFFE11D48)]),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(color: const Color(0xFFF43F5E).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))
+                                    ],
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.arrow_upward_rounded, size: 15, color: Colors.white),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Withdraw',
+                                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.3),
                                       ),
                                     ],
                                   ),
