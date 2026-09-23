@@ -9,7 +9,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../models/game_state.dart';
+import '../models/currency.dart';
 import '../widgets/plane_graph.dart';
+import '../widgets/currency_picker_sheet.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -22,6 +24,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   GameStatus _status = GameStatus.waiting;
   
   double _balance = 1000.0;
+  Currency _userCurrency = Currency.defaultCurrency;
   bool _isLoggedIn = false;
   Map<String, dynamic>? _currentUser;
   String? _authToken;
@@ -130,6 +133,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _authToken = data['token'];
           _currentUser = Map<String, dynamic>.from(data['user']);
           _balance = (_currentUser!['balance'] as num).toDouble();
+          _userCurrency = Currency.getByCode(_currentUser!['currency']);
         });
         return {'success': true};
       } else {
@@ -141,13 +145,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     }
   }
 
-  Future<Map<String, dynamic>> _registerUser(String username, String password) async {
+  Future<Map<String, dynamic>> _registerUser(String username, String password, [String? currency]) async {
     try {
       final url = Uri.parse('${_getServerBaseUrl()}/auth/register');
       final res = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': username, 'password': password}),
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+          'currency': currency ?? 'USD',
+        }),
       );
       final data = jsonDecode(res.body);
       if (res.statusCode == 200 || res.statusCode == 201) {
@@ -156,6 +164,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _authToken = data['token'];
           _currentUser = Map<String, dynamic>.from(data['user']);
           _balance = (_currentUser!['balance'] as num).toDouble();
+          _userCurrency = Currency.getByCode(_currentUser!['currency']);
         });
         return {'success': true};
       } else {
@@ -173,6 +182,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       _authToken = null;
       _currentUser = null;
       _balance = 1000.0;
+      _userCurrency = Currency.defaultCurrency;
     });
   }
 
@@ -492,7 +502,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text('\$', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(_userCurrency.symbol, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     SizedBox(
                       width: 50,
                       child: TextField(
@@ -554,7 +564,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: const Color(0xFF334155))
                             ),
-                            child: Text('\$$amount', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                            child: Text('${_userCurrency.symbol}$amount', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       );
@@ -983,6 +993,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     bool isLoginTab = true;
     bool isLoading = false;
     String? errorMessage;
+    Currency regCurrency = _userCurrency;
 
     showDialog(
       context: context,
@@ -1099,14 +1110,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.card_giftcard, color: Color(0xFF10B981), size: 18),
-                          SizedBox(width: 8),
+                          const Icon(Icons.card_giftcard, color: Color(0xFF10B981), size: 18),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Get \$1,000 welcome balance instantly!',
-                              style: TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w600),
+                              'Get ${regCurrency.symbol}1,000 welcome balance instantly!',
+                              style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
@@ -1156,6 +1167,71 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+
+                  // Currency Selector (Register Tab Only)
+                  if (!isLoginTab) ...[
+                    InkWell(
+                      onTap: () async {
+                        final picked = await CurrencyPickerSheet.show(context, regCurrency);
+                        if (picked != null) {
+                          setDialogState(() {
+                            regCurrency = picked;
+                          });
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.5), width: 1.2),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(regCurrency.flag, style: const TextStyle(fontSize: 22)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Currency: ${regCurrency.code}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF38BDF8).withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          regCurrency.symbol,
+                                          style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    regCurrency.name,
+                                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_drop_down, color: Color(0xFF38BDF8), size: 22),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
 
                   if (errorMessage != null) ...[
                     const SizedBox(height: 12),
@@ -1209,7 +1285,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
                               final result = isLoginTab
                                   ? await _loginUser(u, p)
-                                  : await _registerUser(u, p);
+                                  : await _registerUser(u, p, regCurrency.code);
 
                               if (!mounted) return;
                               if (result['success'] == true) {
@@ -1219,7 +1295,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Welcome, $u! 🎉'),
+                                      content: Text('Welcome, $u! (${regCurrency.code} - ${regCurrency.symbol}) 🎉'),
                                       backgroundColor: const Color(0xFF10B981),
                                       duration: const Duration(seconds: 2),
                                     ),
@@ -1317,24 +1393,41 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.amber.withOpacity(0.4)),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.star, color: Colors.amber, size: 14),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'VIP AVIATOR PILOT',
-                                      style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.amber.withOpacity(0.4)),
                                     ),
-                                  ],
-                                ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.star, color: Colors.amber, size: 14),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'VIP AVIATOR PILOT',
+                                          style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF38BDF8).withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+                                    ),
+                                    child: Text(
+                                      '${_userCurrency.flag} ${_userCurrency.code} (${_userCurrency.symbol})',
+                                      style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1346,7 +1439,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     Row(
                       children: [
                         Expanded(
-                          child: _buildProfileStatCard('Wallet Balance', '\$${_balance.toStringAsFixed(2)}', Icons.account_balance_wallet, const Color(0xFF10B981)),
+                          child: _buildProfileStatCard('Wallet Balance', '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}', Icons.account_balance_wallet, const Color(0xFF10B981)),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1358,7 +1451,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     Row(
                       children: [
                         Expanded(
-                          child: _buildProfileStatCard('Total Won', '\$${totalWon.toStringAsFixed(2)}', Icons.emoji_events, const Color(0xFFF59E0B)),
+                          child: _buildProfileStatCard('Total Won', '${_userCurrency.symbol}${totalWon.toStringAsFixed(2)}', Icons.emoji_events, const Color(0xFFF59E0B)),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1373,7 +1466,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       height: 42,
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.add_circle_outline, color: Color(0xFF10B981), size: 18),
-                        label: const Text('Top Up + \$500 Free Demo Credits', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                        label: Text('Top Up + ${_userCurrency.symbol}500 Free Demo Credits', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFF10B981), width: 1.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1385,10 +1478,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           _syncBalanceToServer();
                           setSheetState(() {});
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('+\$500 Demo Credits added! 💰'),
-                              backgroundColor: Color(0xFF10B981),
-                              duration: Duration(seconds: 2),
+                            SnackBar(
+                              content: Text('+${_userCurrency.symbol}500 Demo Credits added! 💰'),
+                              backgroundColor: const Color(0xFF10B981),
+                              duration: const Duration(seconds: 2),
                             ),
                           );
                         },
@@ -1538,7 +1631,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
                   const SizedBox(width: 6),
                   Text(
-                    '\$${_balance.toStringAsFixed(2)}',
+                    '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}',
                     style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -1715,7 +1808,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        '\$${_winAmount.toStringAsFixed(2)}',
+                                        '${_userCurrency.symbol}${_winAmount.toStringAsFixed(2)}',
                                         style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900),
                                       ),
                                       Container(
