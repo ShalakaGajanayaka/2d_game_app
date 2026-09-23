@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -83,6 +84,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     });
 
     _initSocket();
+    _detectGeoCurrency();
   }
 
   String _getServerBaseUrl() {
@@ -92,6 +94,42 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       serverUrl = serverUrl.replaceFirst('127.0.0.1', '10.0.2.2');
     }
     return serverUrl;
+  }
+
+  Future<void> _detectGeoCurrency() async {
+    try {
+      // 1. Instant detection via device locale (zero latency fallback)
+      try {
+        final localeCountry = ui.PlatformDispatcher.instance.locale.countryCode;
+        if (localeCountry != null && localeCountry.isNotEmpty) {
+          final mapped = CountryCode.fromCountryCode(localeCountry).currencyCode;
+          final localCur = Currency.getByCode(mapped);
+          if (mounted && !_isLoggedIn) {
+            setState(() {
+              _userCurrency = localCur;
+            });
+          }
+        }
+      } catch (_) {}
+
+      // 2. Network-level accurate Geo-IP detection via NestJS backend
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/detect-currency');
+      final res = await http.get(url).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final currencyCode = data['currency'] as String?;
+        if (currencyCode != null && currencyCode.isNotEmpty) {
+          final detectedCur = Currency.getByCode(currencyCode);
+          if (mounted && !_isLoggedIn) {
+            setState(() {
+              _userCurrency = detectedCur;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Geo-currency detection notice: $e');
+    }
   }
 
   Future<void> _syncBalanceToServer({double? winDelta, double? mult}) async {

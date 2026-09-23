@@ -404,4 +404,13 @@ class CountryCode {
         return const CountryCode(name: 'Sri Lanka', code: 'LK', dialCode: '+94', flag: '🇱🇰');
     }
   }
+
+  /// Auto-match a country code based on ISO 2-letter country code (e.g. 'LK', 'US')
+  static CountryCode fromCountryCode(String code) {
+    final clean = code.trim().toUpperCase();
+    return supportedCountries.firstWhere(
+      (c) => c.code.toUpperCase() == clean,
+      orElse: () => defaultCountry,
+    );
+  }
 }
