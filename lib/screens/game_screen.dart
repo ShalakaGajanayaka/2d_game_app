@@ -1206,7 +1206,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       keyboardType: TextInputType.text,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Mobile (+94...) or Username',
+                        hintText: 'Mobile or Username',
                         hintStyle: const TextStyle(color: Colors.white38),
                         prefixIcon: const Icon(
                           Icons.person,
