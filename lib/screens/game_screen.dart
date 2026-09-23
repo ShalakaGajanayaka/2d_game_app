@@ -12,6 +12,8 @@ import '../models/game_state.dart';
 import '../models/currency.dart';
 import '../widgets/plane_graph.dart';
 import '../widgets/currency_picker_sheet.dart';
+import '../models/country_code.dart';
+import '../widgets/country_code_picker_sheet.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -994,6 +996,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     bool isLoading = false;
     String? errorMessage;
     Currency regCurrency = _userCurrency;
+    CountryCode regCountryCode = CountryCode.fromCurrency(regCurrency.code);
 
     showDialog(
       context: context,
@@ -1124,26 +1127,99 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
 
-                  TextField(
-                    controller: userController,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: 'Username',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon: const Icon(Icons.person, color: Color(0xFF38BDF8), size: 20),
-                      filled: true,
-                      fillColor: const Color(0xFF0F172A),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      enabledBorder: OutlineInputBorder(
+                  // Mobile Number Field
+                  if (!isLoginTab) ...[
+                    // Register Tab: Country Calling Code Picker + Local Number
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF334155)),
+                        border: Border.all(color: const Color(0xFF334155)),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                      child: Row(
+                        children: [
+                          // Country Code Prefix Picker Button
+                          InkWell(
+                            onTap: () async {
+                              final picked = await CountryCodePickerSheet.show(context, regCountryCode);
+                              if (picked != null) {
+                                setDialogState(() {
+                                  regCountryCode = picked;
+                                });
+                              }
+                            },
+                            borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(color: Color(0xFF334155), width: 1),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(regCountryCode.flag, style: const TextStyle(fontSize: 18)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    regCountryCode.dialCode,
+                                    style: const TextStyle(
+                                      color: Color(0xFF38BDF8),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  const Icon(Icons.arrow_drop_down, color: Color(0xFF38BDF8), size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Phone Number Input
+                          Expanded(
+                            child: TextField(
+                              controller: userController,
+                              keyboardType: TextInputType.phone,
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                              decoration: const InputDecoration(
+                                hintText: '77 123 4567',
+                                hintStyle: TextStyle(color: Colors.white38),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
+                  ] else ...[
+                    // Sign In Tab: Mobile Number or Username
+                    TextField(
+                      controller: userController,
+                      keyboardType: TextInputType.text,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Mobile (+94...) or Username',
+                        hintStyle: const TextStyle(color: Colors.white38),
+                        prefixIcon: const Icon(
+                          Icons.person,
+                          color: Color(0xFF38BDF8),
+                          size: 20,
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFF0F172A),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF334155)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
 
                   TextField(
@@ -1177,6 +1253,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         if (picked != null) {
                           setDialogState(() {
                             regCurrency = picked;
+                            regCountryCode = CountryCode.fromCurrency(picked.code);
                           });
                         }
                       },
@@ -1275,8 +1352,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               final u = userController.text.trim();
                               final p = passController.text.trim();
                               if (u.isEmpty || p.isEmpty) {
-                                setDialogState(() => errorMessage = 'Please fill in both fields');
+                                setDialogState(() => errorMessage = isLoginTab ? 'Please fill in both fields' : 'Please enter your mobile number and password');
                                 return;
+                              }
+                              String fullIdentifier = u;
+                              if (!isLoginTab) {
+                                var digitsOnly = u.replaceAll(RegExp(r'\D'), '');
+                                if (digitsOnly.startsWith('0')) {
+                                  digitsOnly = digitsOnly.substring(1);
+                                }
+                                if (digitsOnly.length < 5) {
+                                  setDialogState(() => errorMessage = 'Please enter a valid mobile phone number');
+                                  return;
+                                }
+                                fullIdentifier = '${regCountryCode.dialCode}$digitsOnly';
                               }
                               setDialogState(() {
                                 isLoading = true;
@@ -1285,7 +1374,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
                               final result = isLoginTab
                                   ? await _loginUser(u, p)
-                                  : await _registerUser(u, p, regCurrency.code);
+                                  : await _registerUser(fullIdentifier, p, regCurrency.code);
 
                               if (!mounted) return;
                               if (result['success'] == true) {
@@ -1295,7 +1384,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Welcome, $u! (${regCurrency.code} - ${regCurrency.symbol}) 🎉'),
+                                      content: Text('Welcome, $fullIdentifier! (${regCurrency.code} - ${regCurrency.symbol}) 🎉'),
                                       backgroundColor: const Color(0xFF10B981),
                                       duration: const Duration(seconds: 2),
                                     ),
@@ -1377,10 +1466,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           child: CircleAvatar(
                             radius: 28,
                             backgroundColor: const Color(0xFF1E293B),
-                            child: Text(
-                              username.isNotEmpty ? username[0].toUpperCase() : 'U',
-                              style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 22),
-                            ),
+                            child: username.startsWith('+') || RegExp(r'^\d').hasMatch(username)
+                                ? const Icon(Icons.phone_android, color: Color(0xFF38BDF8), size: 26)
+                                : Text(
+                                    username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                                    style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 22),
+                                  ),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -1559,26 +1650,30 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       appBar: AppBar(
         centerTitle: false,
         titleSpacing: 16.0,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.flight_takeoff, color: Colors.orangeAccent),
-            const SizedBox(width: 8),
-            RichText(
-              text: const TextSpan(
-                style: TextStyle(
-                  fontSize: 24, 
-                  fontWeight: FontWeight.w900, 
-                  fontStyle: FontStyle.italic, 
-                  letterSpacing: 1.2
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.flight_takeoff, color: Colors.orangeAccent),
+              const SizedBox(width: 8),
+              RichText(
+                text: const TextSpan(
+                  style: TextStyle(
+                    fontSize: 24, 
+                    fontWeight: FontWeight.w900, 
+                    fontStyle: FontStyle.italic, 
+                    letterSpacing: 1.2
+                  ),
+                  children: [
+                    TextSpan(text: 'Sky', style: TextStyle(color: Colors.lightBlueAccent)),
+                    TextSpan(text: 'Rush', style: TextStyle(color: Colors.orangeAccent)),
+                  ],
                 ),
-                children: [
-                  TextSpan(text: 'Sky', style: TextStyle(color: Colors.lightBlueAccent)),
-                  TextSpan(text: 'Rush', style: TextStyle(color: Colors.orangeAccent)),
-                ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -1680,14 +1775,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     radius: 16,
                     backgroundColor: const Color(0xFF1E293B),
                     child: _isLoggedIn
-                        ? Text(
-                            ((_currentUser?['username'] ?? 'U') as String).substring(0, 1).toUpperCase(),
-                            style: const TextStyle(
-                              color: Color(0xFF38BDF8),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          )
+                        ? (((_currentUser?['username'] ?? '') as String).startsWith('+') ||
+                                RegExp(r'^\d').hasMatch((_currentUser?['username'] ?? '') as String)
+                            ? const Icon(Icons.phone_android, size: 16, color: Color(0xFF38BDF8))
+                            : Text(
+                                ((_currentUser?['username'] ?? 'U') as String).substring(0, 1).toUpperCase(),
+                                style: const TextStyle(
+                                  color: Color(0xFF38BDF8),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ))
                         : const Icon(Icons.person_outline, size: 18, color: Colors.white70),
                   ),
                 ),
