@@ -1357,7 +1357,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         obscureText: true,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'New Password (min 4 characters)',
+                          hintText: 'New Password',
                           hintStyle: const TextStyle(color: Colors.white38),
                           prefixIcon: const Icon(Icons.lock_reset, color: Color(0xFF38BDF8), size: 20),
                           filled: true,
@@ -1383,7 +1383,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         keyboardType: TextInputType.emailAddress,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Email (e.g. pilot@example.com)',
+                          hintText: 'Email',
                           hintStyle: const TextStyle(color: Colors.white38),
                           prefixIcon: const Icon(Icons.alternate_email, color: Color(0xFF38BDF8), size: 20),
                           filled: true,
@@ -1412,7 +1412,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         obscureText: true,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Password (min 4 characters)',
+                          hintText: 'Password',
                           hintStyle: const TextStyle(color: Colors.white38),
                           prefixIcon: const Icon(Icons.lock, color: Color(0xFF38BDF8), size: 20),
                           filled: true,
