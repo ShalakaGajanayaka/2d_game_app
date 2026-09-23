@@ -179,6 +179,57 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     }
   }
 
+  Future<Map<String, dynamic>> _requestResetOtp(String phone) async {
+    try {
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/forgot-password/request-otp');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phoneNumber': phone}),
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return {'success': true, 'devOtp': data['devOtp'], 'message': data['message']};
+      } else {
+        final msg = data['message'] is List ? (data['message'] as List).join(', ') : data['message'].toString();
+        return {'success': false, 'message': msg};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _resetPassword(String phone, String otp, String newPassword) async {
+    try {
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/forgot-password/reset');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'phoneNumber': phone,
+          'otp': otp,
+          'newPassword': newPassword,
+        }),
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        setState(() {
+          _isLoggedIn = true;
+          _authToken = data['token'];
+          _currentUser = Map<String, dynamic>.from(data['user']);
+          _balance = (_currentUser!['balance'] as num).toDouble();
+          _userCurrency = Currency.getByCode(_currentUser!['currency']);
+        });
+        return {'success': true, 'message': data['message']};
+      } else {
+        final msg = data['message'] is List ? (data['message'] as List).join(', ') : data['message'].toString();
+        return {'success': false, 'message': msg};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
   void _logoutUser() {
     setState(() {
       _isLoggedIn = false;
@@ -1020,11 +1071,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   void _showAuthDialog() {
     final userController = TextEditingController();
     final passController = TextEditingController();
+    final resetPhoneController = TextEditingController();
+    final otpController = TextEditingController();
+    final newPassController = TextEditingController();
+
     bool isLoginTab = true;
+    bool isForgotPasswordMode = false;
+    bool isOtpSent = false;
     bool isLoading = false;
     String? errorMessage;
+    String? successMessage;
+    String? devOtpCode;
     CountryCode regCountryCode = CountryCode.defaultCountry;
     Currency regCurrency = Currency.getByCode(regCountryCode.currencyCode);
+    CountryCode forgotCountryCode = CountryCode.defaultCountry;
 
     // Feature Flags: components preserved intact in code, hidden per user requirement
     const bool showWelcomeBanner = false;
@@ -1046,98 +1106,146 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF38BDF8).withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.flight_takeoff, color: Color(0xFF38BDF8), size: 28),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'SkyRush Account',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF334155)),
-                    ),
-                    padding: const EdgeInsets.all(4),
-                    child: Row(
+                  // Modal Top Header
+                  if (isForgotPasswordMode) ...[
+                    Row(
                       children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setDialogState(() {
-                                isLoginTab = true;
-                                errorMessage = null;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isLoginTab ? const Color(0xFF38BDF8) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Sign In',
-                                style: TextStyle(
-                                  color: isLoginTab ? const Color(0xFF0F172A) : Colors.white60,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
+                        InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              isForgotPasswordMode = false;
+                              isOtpSent = false;
+                              errorMessage = null;
+                              successMessage = null;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFF334155)),
                             ),
+                            child: const Icon(Icons.arrow_back, color: Color(0xFF38BDF8), size: 18),
                           ),
                         ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setDialogState(() {
-                                isLoginTab = false;
-                                errorMessage = null;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: !isLoginTab ? const Color(0xFF38BDF8) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Register',
-                                style: TextStyle(
-                                  color: !isLoginTab ? const Color(0xFF0F172A) : Colors.white60,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
+                        const SizedBox(width: 12),
+                        Text(
+                          isOtpSent ? 'Create New Password' : 'Reset Password',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    Text(
+                      isOtpSent
+                          ? 'Enter the 6-digit verification code sent to your number and choose a new password.'
+                          : 'Enter your registered mobile number to receive a verification code.',
+                      style: const TextStyle(color: Colors.white60, fontSize: 12),
+                    ),
+                    const SizedBox(height: 16),
+                  ] else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF38BDF8).withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.flight_takeoff, color: Color(0xFF38BDF8), size: 28),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'SkyRush Account',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Sign In / Register Tab Switcher
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  isLoginTab = true;
+                                  errorMessage = null;
+                                  successMessage = null;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isLoginTab ? const Color(0xFF38BDF8) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Sign In',
+                                  style: TextStyle(
+                                    color: isLoginTab ? const Color(0xFF0F172A) : Colors.white60,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  isLoginTab = false;
+                                  errorMessage = null;
+                                  successMessage = null;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: !isLoginTab ? const Color(0xFF38BDF8) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Register',
+                                  style: TextStyle(
+                                    color: !isLoginTab ? const Color(0xFF0F172A) : Colors.white60,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Welcome Bonus Banner (Preserved in code, hidden per user specification)
-                  if (!isLoginTab && showWelcomeBanner)
+                  if (!isForgotPasswordMode && !isLoginTab && showWelcomeBanner)
                     Container(
                       margin: const EdgeInsets.only(bottom: 14),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1160,96 +1268,243 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
 
-                  // Mobile Number Field
-                  if (!isLoginTab) ...[
-                    // Register Tab: Country Calling Code Picker + Local Number
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: (errorMessage != null && errorMessage!.toLowerCase().contains('already registered'))
-                              ? Colors.redAccent
-                              : const Color(0xFF334155),
-                          width: (errorMessage != null && errorMessage!.toLowerCase().contains('already registered')) ? 1.5 : 1.0,
+                  // ==================== FORGOT PASSWORD FORM ====================
+                  if (isForgotPasswordMode) ...[
+                    if (!isOtpSent) ...[
+                      // Step 1: Mobile Number Input with Country Code Picker
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF334155)),
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          // Country Code Prefix Picker Button
-                          InkWell(
-                            onTap: () async {
-                              final picked = await CountryCodePickerSheet.show(context, regCountryCode);
-                              if (picked != null) {
-                                setDialogState(() {
-                                  regCountryCode = picked;
-                                  // Automatically select currency according to country code!
-                                  regCurrency = Currency.getByCode(picked.currencyCode);
-                                });
-                              }
-                            },
-                            borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Color(0xFF334155), width: 1),
+                        child: Row(
+                          children: [
+                            InkWell(
+                              onTap: () async {
+                                final picked = await CountryCodePickerSheet.show(context, forgotCountryCode);
+                                if (picked != null) {
+                                  setDialogState(() {
+                                    forgotCountryCode = picked;
+                                  });
+                                }
+                              },
+                              borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                decoration: const BoxDecoration(
+                                  border: Border(right: BorderSide(color: Color(0xFF334155), width: 1)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(forgotCountryCode.flag, style: const TextStyle(fontSize: 18)),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      forgotCountryCode.dialCode,
+                                      style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(Icons.arrow_drop_down, color: Color(0xFF38BDF8), size: 18),
+                                  ],
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(regCountryCode.flag, style: const TextStyle(fontSize: 18)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    regCountryCode.dialCode,
-                                    style: const TextStyle(
-                                      color: Color(0xFF38BDF8),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  const Icon(Icons.arrow_drop_down, color: Color(0xFF38BDF8), size: 18),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: resetPhoneController,
+                                keyboardType: TextInputType.phone,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(forgotCountryCode.maxInputLength),
                                 ],
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: forgotCountryCode.exampleHint,
+                                  hintStyle: const TextStyle(color: Colors.white38),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                ),
                               ),
                             ),
-                          ),
-                          // Phone Number Input (strictly blocks letters and enforces country length)
-                          Expanded(
-                            child: TextField(
-                              controller: userController,
-                              keyboardType: TextInputType.phone,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(regCountryCode.maxInputLength),
-                              ],
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                              decoration: InputDecoration(
-                                hintText: regCountryCode.exampleHint,
-                                hintStyle: const TextStyle(color: Colors.white38),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                    ] else ...[
+                      // Step 2: 6-Digit OTP and New Password Fields
+                      if (devOtpCode != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.key, color: Color(0xFF38BDF8), size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Dev Verification Code: $devOtpCode (Auto-filled)',
+                                  style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      TextField(
+                        controller: otpController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
+                        style: const TextStyle(color: Colors.white, fontSize: 15, letterSpacing: 2.0, fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          hintText: '6-digit code',
+                          hintStyle: const TextStyle(color: Colors.white38, letterSpacing: 0),
+                          prefixIcon: const Icon(Icons.mark_email_read_outlined, color: Color(0xFF38BDF8), size: 20),
+                          filled: true,
+                          fillColor: const Color(0xFF0F172A),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: newPassController,
+                        obscureText: true,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'New Password',
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          prefixIcon: const Icon(Icons.lock_reset, color: Color(0xFF38BDF8), size: 20),
+                          filled: true,
+                          fillColor: const Color(0xFF0F172A),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ],
                   ] else ...[
-                    // Sign In Tab: Mobile Number or Username
+                    // ==================== NORMAL AUTH FORM ====================
+                    if (!isLoginTab) ...[
+                      // Register Tab: Country Calling Code Picker + Local Number
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: (errorMessage != null && errorMessage!.toLowerCase().contains('already registered'))
+                                ? Colors.redAccent
+                                : const Color(0xFF334155),
+                            width: (errorMessage != null && errorMessage!.toLowerCase().contains('already registered')) ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            InkWell(
+                              onTap: () async {
+                                final picked = await CountryCodePickerSheet.show(context, regCountryCode);
+                                if (picked != null) {
+                                  setDialogState(() {
+                                    regCountryCode = picked;
+                                    regCurrency = Currency.getByCode(picked.currencyCode);
+                                  });
+                                }
+                              },
+                              borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                decoration: const BoxDecoration(
+                                  border: Border(right: BorderSide(color: Color(0xFF334155), width: 1)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(regCountryCode.flag, style: const TextStyle(fontSize: 18)),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      regCountryCode.dialCode,
+                                      style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(Icons.arrow_drop_down, color: Color(0xFF38BDF8), size: 18),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: userController,
+                                keyboardType: TextInputType.phone,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(regCountryCode.maxInputLength),
+                                ],
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: regCountryCode.exampleHint,
+                                  hintStyle: const TextStyle(color: Colors.white38),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      // Sign In Tab: Mobile Number or Username
+                      TextField(
+                        controller: userController,
+                        keyboardType: TextInputType.text,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Mobile or Username',
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          prefixIcon: const Icon(Icons.person, color: Color(0xFF38BDF8), size: 20),
+                          filled: true,
+                          fillColor: const Color(0xFF0F172A),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+
                     TextField(
-                      controller: userController,
-                      keyboardType: TextInputType.text,
+                      controller: passController,
+                      obscureText: true,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Mobile or Username',
+                        hintText: 'Password',
                         hintStyle: const TextStyle(color: Colors.white38),
-                        prefixIcon: const Icon(
-                          Icons.person,
-                          color: Color(0xFF38BDF8),
-                          size: 20,
-                        ),
+                        prefixIcon: const Icon(Icons.lock, color: Color(0xFF38BDF8), size: 20),
                         filled: true,
                         fillColor: const Color(0xFF0F172A),
                         contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -1263,99 +1518,74 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         ),
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 12),
 
-                  TextField(
-                    controller: passController,
-                    obscureText: true,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: 'Password',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon: const Icon(Icons.lock, color: Color(0xFF38BDF8), size: 20),
-                      filled: true,
-                      fillColor: const Color(0xFF0F172A),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF334155)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Currency Selector (Preserved in code, hidden per requirement; auto-derived from country code)
-                  if (!isLoginTab && showCurrencyPicker) ...[
-                    InkWell(
-                      onTap: () async {
-                        final picked = await CurrencyPickerSheet.show(context, regCurrency);
-                        if (picked != null) {
-                          setDialogState(() {
-                            regCurrency = picked;
-                            regCountryCode = CountryCode.fromCurrency(picked.code);
-                          });
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.5), width: 1.2),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(regCurrency.flag, style: const TextStyle(fontSize: 22)),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Currency: ${regCurrency.code}',
-                                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF38BDF8).withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          regCurrency.symbol,
-                                          style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 1),
-                                  Text(
-                                    regCurrency.name,
-                                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
+                    // Forgot Password link in Sign In mode
+                    if (isLoginTab) ...[
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              isForgotPasswordMode = true;
+                              isOtpSent = false;
+                              errorMessage = null;
+                              successMessage = null;
+                              if (userController.text.trim().isNotEmpty) {
+                                final digits = userController.text.trim().replaceAll(RegExp(r'\D'), '');
+                                if (digits.isNotEmpty) {
+                                  resetPhoneController.text = digits.startsWith('0') ? digits.substring(1) : digits;
+                                }
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            child: Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: Color(0xFF38BDF8),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const Icon(Icons.arrow_drop_down, color: Color(0xFF38BDF8), size: 22),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
+                    ],
+
+                    const SizedBox(height: 12),
                   ],
 
+                  // Success message container
+                  if (successMessage != null) ...[
+                    Container(
+                      margin: const EdgeInsets.only(top: 8, bottom: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              successMessage!,
+                              style: const TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Error message container
                   if (errorMessage != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
@@ -1378,7 +1608,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               ),
                             ],
                           ),
-                          if (!isLoginTab && errorMessage!.toLowerCase().contains('already registered')) ...[
+                          if (!isForgotPasswordMode && !isLoginTab && errorMessage!.toLowerCase().contains('already registered')) ...[
                             const SizedBox(height: 10),
                             InkWell(
                               onTap: () {
@@ -1414,8 +1644,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     ),
                   ],
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
+                  // ==================== SUBMIT BUTTON ====================
                   SizedBox(
                     width: double.infinity,
                     height: 44,
@@ -1429,6 +1660,96 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       onPressed: isLoading
                           ? null
                           : () async {
+                              // ================= FORGOT PASSWORD ACTIONS =================
+                              if (isForgotPasswordMode) {
+                                if (!isOtpSent) {
+                                  // Request OTP
+                                  final u = resetPhoneController.text.trim();
+                                  if (u.isEmpty) {
+                                    setDialogState(() => errorMessage = 'Please enter your mobile number');
+                                    return;
+                                  }
+                                  final validationError = forgotCountryCode.validateNumber(u);
+                                  if (validationError != null) {
+                                    setDialogState(() => errorMessage = validationError);
+                                    return;
+                                  }
+
+                                  var digits = u.replaceAll(RegExp(r'\D'), '');
+                                  if (digits.startsWith('0')) digits = digits.substring(1);
+                                  final fullPhone = '${forgotCountryCode.dialCode}$digits';
+
+                                  setDialogState(() {
+                                    isLoading = true;
+                                    errorMessage = null;
+                                    successMessage = null;
+                                  });
+
+                                  final result = await _requestResetOtp(fullPhone);
+                                  if (!mounted) return;
+
+                                  if (result['success'] == true) {
+                                    setDialogState(() {
+                                      isLoading = false;
+                                      isOtpSent = true;
+                                      devOtpCode = result['devOtp'];
+                                      otpController.text = devOtpCode ?? '';
+                                      successMessage = 'Verification code sent to $fullPhone!';
+                                    });
+                                  } else {
+                                    setDialogState(() {
+                                      isLoading = false;
+                                      errorMessage = result['message'] ?? 'Failed to send code';
+                                    });
+                                  }
+                                } else {
+                                  // Submit Reset OTP + New Password
+                                  final otp = otpController.text.trim();
+                                  final newPass = newPassController.text.trim();
+                                  if (otp.isEmpty || newPass.isEmpty) {
+                                    setDialogState(() => errorMessage = 'Please enter the verification code and new password');
+                                    return;
+                                  }
+                                  if (newPass.length < 4) {
+                                    setDialogState(() => errorMessage = 'New password must be at least 4 characters long');
+                                    return;
+                                  }
+
+                                  var digits = resetPhoneController.text.trim().replaceAll(RegExp(r'\D'), '');
+                                  if (digits.startsWith('0')) digits = digits.substring(1);
+                                  final fullPhone = '${forgotCountryCode.dialCode}$digits';
+
+                                  setDialogState(() {
+                                    isLoading = true;
+                                    errorMessage = null;
+                                    successMessage = null;
+                                  });
+
+                                  final result = await _resetPassword(fullPhone, otp, newPass);
+                                  if (!mounted) return;
+
+                                  if (result['success'] == true) {
+                                    if (ctx.mounted) Navigator.of(ctx).pop();
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Password reset successfully! Welcome back 🎉'),
+                                          backgroundColor: Color(0xFF10B981),
+                                          duration: Duration(seconds: 3),
+                                        ),
+                                      );
+                                    }
+                                  } else {
+                                    setDialogState(() {
+                                      isLoading = false;
+                                      errorMessage = result['message'] ?? 'Failed to reset password';
+                                    });
+                                  }
+                                }
+                                return;
+                              }
+
+                              // ================= NORMAL AUTH ACTIONS =================
                               final u = userController.text.trim();
                               final p = passController.text.trim();
                               if (u.isEmpty || p.isEmpty) {
@@ -1437,7 +1758,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               }
                               String fullIdentifier = u;
                               if (!isLoginTab) {
-                                // Strictly validate format according to country rules
                                 final validationError = regCountryCode.validateNumber(u);
                                 if (validationError != null) {
                                   setDialogState(() => errorMessage = validationError);
@@ -1487,17 +1807,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               child: CircularProgressIndicator(color: Color(0xFF0F172A), strokeWidth: 2.5),
                             )
                           : Text(
-                              isLoginTab ? 'Sign In' : 'Create Account & Play',
+                              isForgotPasswordMode
+                                  ? (!isOtpSent ? 'Send Verification Code' : 'Reset Password & Sign In')
+                                  : (isLoginTab ? 'Sign In' : 'Create Account & Play'),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                             ),
                     ),
                   ),
 
                   const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Continue as Guest', style: TextStyle(color: Colors.white54, fontSize: 13)),
-                  ),
+                  if (isForgotPasswordMode)
+                    TextButton(
+                      onPressed: () {
+                        setDialogState(() {
+                          isForgotPasswordMode = false;
+                          isOtpSent = false;
+                          errorMessage = null;
+                          successMessage = null;
+                        });
+                      },
+                      child: const Text('Back to Sign In', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13, fontWeight: FontWeight.w600)),
+                    )
+                  else
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Continue as Guest', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                    ),
                 ],
               ),
             ),
