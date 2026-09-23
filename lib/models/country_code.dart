@@ -76,6 +76,116 @@ class CountryCode {
     }
   }
 
+  /// Dynamic hint text showing standard national phone format
+  String get exampleHint {
+    switch (code.toUpperCase()) {
+      case 'LK': return '77 123 4567';
+      case 'US':
+      case 'CA': return '415 555 2671';
+      case 'GB': return '7911 123456';
+      case 'IN': return '98765 43210';
+      case 'AE': return '50 123 4567';
+      case 'AU': return '412 345 678';
+      case 'SG': return '8123 4567';
+      case 'MY': return '12 345 6789';
+      case 'QA': return '3312 3456';
+      case 'SA': return '50 123 4567';
+      case 'DE': return '151 1234567';
+      default: return '123 456 789';
+    }
+  }
+
+  /// Maximum allowed digits input based on country numbering plan
+  int get maxInputLength {
+    switch (code.toUpperCase()) {
+      case 'LK': return 10; // 9 digits, or 10 if typed with leading 0
+      case 'US':
+      case 'CA': return 10;
+      case 'IN': return 10;
+      case 'GB': return 11; // 10 digits, or 11 with leading 0
+      case 'AE': return 10; // 9 digits, or 10 with leading 0
+      case 'AU': return 10; // 9 digits, or 10 with leading 0
+      default: return 12;
+    }
+  }
+
+  /// Validates the input mobile number according to the country telecom standard
+  String? validateNumber(String raw) {
+    if (raw.trim().isEmpty) {
+      return 'Please enter your mobile phone number';
+    }
+    // Digits only
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return 'Mobile number must contain digits only';
+    }
+
+    // Strip leading 0 if present to obtain national significant number
+    final national = digits.startsWith('0') ? digits.substring(1) : digits;
+
+    switch (code.toUpperCase()) {
+      case 'LK':
+        if (national.length != 9) {
+          return 'Sri Lankan mobile numbers must have 9 digits (e.g. 77 123 4567)';
+        }
+        if (!national.startsWith('7')) {
+          return 'Sri Lankan mobile numbers must start with 7 (e.g. 70, 71, 74, 76, 77, 78)';
+        }
+        break;
+
+      case 'IN':
+        if (national.length != 10) {
+          return 'Indian mobile numbers must have 10 digits';
+        }
+        if (!RegExp(r'^[6-9]').hasMatch(national)) {
+          return 'Indian mobile numbers must start with 6, 7, 8, or 9';
+        }
+        break;
+
+      case 'US':
+      case 'CA':
+        if (national.length != 10) {
+          return 'US/Canada mobile numbers must have 10 digits';
+        }
+        break;
+
+      case 'GB':
+        if (national.length != 10) {
+          return 'UK mobile numbers must have 10 digits';
+        }
+        if (!national.startsWith('7')) {
+          return 'UK mobile numbers must start with 7';
+        }
+        break;
+
+      case 'AE':
+        if (national.length != 9) {
+          return 'UAE mobile numbers must have 9 digits';
+        }
+        if (!national.startsWith('5')) {
+          return 'UAE mobile numbers must start with 5 (e.g. 50, 52, 54, 55, 56)';
+        }
+        break;
+
+      case 'AU':
+        if (national.length != 9) {
+          return 'Australian mobile numbers must have 9 digits';
+        }
+        if (!national.startsWith('4')) {
+          return 'Australian mobile numbers must start with 4';
+        }
+        break;
+
+      default:
+        if (national.length < 7 || national.length > 12) {
+          return 'Please enter a valid mobile number (7-12 digits)';
+        }
+        break;
+    }
+
+    return null; // Valid number!
+  }
+
   static const CountryCode defaultCountry = CountryCode(
     name: 'Sri Lanka',
     code: 'LK',

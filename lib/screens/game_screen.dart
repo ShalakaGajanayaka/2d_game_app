@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -1187,17 +1188,21 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               ),
                             ),
                           ),
-                          // Phone Number Input
+                          // Phone Number Input (strictly blocks letters and enforces country length)
                           Expanded(
                             child: TextField(
                               controller: userController,
                               keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(regCountryCode.maxInputLength),
+                              ],
                               style: const TextStyle(color: Colors.white, fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: '77 123 4567',
-                                hintStyle: TextStyle(color: Colors.white38),
+                              decoration: InputDecoration(
+                                hintText: regCountryCode.exampleHint,
+                                hintStyle: const TextStyle(color: Colors.white38),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               ),
                             ),
                           ),
@@ -1405,13 +1410,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               }
                               String fullIdentifier = u;
                               if (!isLoginTab) {
+                                // Strictly validate format according to country rules
+                                final validationError = regCountryCode.validateNumber(u);
+                                if (validationError != null) {
+                                  setDialogState(() => errorMessage = validationError);
+                                  return;
+                                }
+
                                 var digitsOnly = u.replaceAll(RegExp(r'\D'), '');
                                 if (digitsOnly.startsWith('0')) {
                                   digitsOnly = digitsOnly.substring(1);
-                                }
-                                if (digitsOnly.length < 5) {
-                                  setDialogState(() => errorMessage = 'Please enter a valid mobile phone number');
-                                  return;
                                 }
                                 fullIdentifier = '${regCountryCode.dialCode}$digitsOnly';
                               }
