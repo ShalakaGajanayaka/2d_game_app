@@ -16,6 +16,7 @@ import '../widgets/plane_graph.dart';
 import '../widgets/currency_picker_sheet.dart';
 import '../models/country_code.dart';
 import '../widgets/country_code_picker_sheet.dart';
+import '../widgets/deposit_sheet.dart';
 import '../models/live_bets_adapter.dart';
 
 class GameScreen extends StatefulWidget {
@@ -461,6 +462,45 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             });
           }
         });
+      }
+    });
+
+    socket.on('userBalanceUpdated', (data) {
+      if (!mounted) return;
+      final targetUser = data['username']?.toString()?.toLowerCase();
+      final myUser = _currentUser?['username']?.toString()?.toLowerCase() ??
+          _currentUser?['email']?.toString()?.toLowerCase();
+
+      if (myUser != null && targetUser != null && targetUser == myUser) {
+        final newBal = (data['balance'] as num?)?.toDouble();
+        final msg = data['message'] as String? ?? 'Wallet balance updated! 💰';
+        if (newBal != null) {
+          setState(() {
+            _balance = newBal;
+            if (_currentUser != null) {
+              _currentUser!['balance'] = newBal;
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      msg,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF10B981),
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     });
   }
@@ -1989,6 +2029,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _showDepositSheet() {
+    if (!_isLoggedIn || _authToken == null) {
+      _showAuthDialog();
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DepositSheet(
+        currency: _userCurrency,
+        authToken: _authToken!,
+        serverBaseUrl: _getServerBaseUrl(),
+        onDepositSubmitted: () {},
+      ),
+    );
+  }
+
   void _showProfileSheet() {
     showModalBottomSheet(
       context: context,
@@ -2126,27 +2184,21 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
                     SizedBox(
                       width: double.infinity,
-                      height: 42,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.add_circle_outline, color: Color(0xFF10B981), size: 18),
-                        label: Text('Top Up + ${_userCurrency.symbol}500 Free Demo Credits', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
+                        label: const Text(
+                          'Deposit Funds (iPay / UPay / Bank)',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 3,
                         ),
                         onPressed: () {
-                          setState(() {
-                            _balance += 500.0;
-                          });
-                          _syncBalanceToServer();
-                          setSheetState(() {});
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('+${_userCurrency.symbol}500 Demo Credits added! 💰'),
-                              backgroundColor: const Color(0xFF10B981),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
+                          Navigator.of(ctx).pop();
+                          _showDepositSheet();
                         },
                       ),
                     ),
@@ -2290,26 +2342,60 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   ),
                   Center(
                     child: _isLoggedIn
-                        ? Container(
-                            margin: const EdgeInsets.only(right: 8.0),
-                            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}',
-                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              InkWell(
+                                onTap: _showProfileSheet,
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 6.0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 13.0, vertical: 6.0),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              InkWell(
+                                onTap: _showDepositSheet,
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8.0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))
+                                    ],
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.add, size: 16, color: Colors.white),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Deposit',
+                                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           )
                         : InkWell(
                             onTap: _showAuthDialog,
