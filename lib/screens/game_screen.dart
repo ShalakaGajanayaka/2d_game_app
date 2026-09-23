@@ -1493,13 +1493,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         ),
                       ],
                     ] else ...[
-                      // Sign In Tab: Email or Gamer Tag
+                      // Sign In Tab: Email or Username
                       TextField(
                         controller: userController,
                         keyboardType: TextInputType.text,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Email or Gamer Tag',
+                          hintText: 'Email or Username',
                           hintStyle: const TextStyle(color: Colors.white38),
                           prefixIcon: const Icon(Icons.person, color: Color(0xFF38BDF8), size: 20),
                           filled: true,
@@ -2140,144 +2140,152 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(right: 8.0),
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-              decoration: BoxDecoration(
-                color: _isConnected ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _isConnected ? Colors.greenAccent.withOpacity(0.4) : Colors.redAccent.withOpacity(0.4)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isConnected ? Colors.greenAccent : Colors.redAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _isConnected ? 'LIVE' : 'OFFLINE',
-                    style: TextStyle(
-                      color: _isConnected ? Colors.greenAccent : Colors.redAccent,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Center(
-            child: _isLoggedIn
-                ? Container(
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
                     margin: const EdgeInsets.only(right: 8.0),
-                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
-                      ],
+                      color: _isConnected ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _isConnected ? Colors.greenAccent.withOpacity(0.4) : Colors.redAccent.withOpacity(0.4)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
-                        const SizedBox(width: 6),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isConnected ? Colors.greenAccent : Colors.redAccent,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         Text(
-                          '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}',
-                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                          _isConnected ? 'LIVE' : 'OFFLINE',
+                          style: TextStyle(
+                            color: _isConnected ? Colors.greenAccent : Colors.redAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
-                  )
-                : InkWell(
-                    onTap: _showAuthDialog,
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 8.0),
-                      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))
-                        ],
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
-                          SizedBox(width: 6),
-                          Text(
-                            'Deposit',
-                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                  ),
+                ),
+                Center(
+                  child: _isLoggedIn
+                      ? Container(
+                          margin: const EdgeInsets.only(right: 8.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
+                            ],
                           ),
-                        ],
+                          child: Row(
+                            children: [
+                              const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}',
+                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        )
+                      : InkWell(
+                          onTap: _showAuthDialog,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))
+                              ],
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Deposit',
+                                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                ),
+                // Profile Avatar Icon (Tap to Login / View Profile)
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: Center(
+                    child: InkWell(
+                      onTap: () {
+                        if (_isLoggedIn) {
+                          _showProfileSheet();
+                        } else {
+                          _showAuthDialog();
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        padding: const EdgeInsets.all(2.5),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: _isLoggedIn
+                              ? const LinearGradient(
+                                  colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : const LinearGradient(
+                                  colors: [Colors.white38, Colors.white12],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _isLoggedIn
+                                  ? const Color(0xFF38BDF8).withOpacity(0.5)
+                                  : Colors.black26,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: const Color(0xFF1E293B),
+                          child: _isLoggedIn
+                              ? (((_currentUser?['username'] ?? '') as String).startsWith('+') ||
+                                      RegExp(r'^\d').hasMatch((_currentUser?['username'] ?? '') as String)
+                                  ? const Icon(Icons.phone_android, size: 16, color: Color(0xFF38BDF8))
+                                  : Text(
+                                      ((_currentUser?['username'] ?? 'U') as String).substring(0, 1).toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Color(0xFF38BDF8),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ))
+                              : const Icon(Icons.person_outline, size: 18, color: Colors.white70),
+                        ),
                       ),
                     ),
                   ),
-          ),
-          // Profile Avatar Icon (Tap to Login / View Profile)
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: InkWell(
-                onTap: () {
-                  if (_isLoggedIn) {
-                    _showProfileSheet();
-                  } else {
-                    _showAuthDialog();
-                  }
-                },
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: _isLoggedIn
-                        ? const LinearGradient(
-                            colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : const LinearGradient(
-                            colors: [Colors.white38, Colors.white12],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _isLoggedIn
-                            ? const Color(0xFF38BDF8).withOpacity(0.5)
-                            : Colors.black26,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: const Color(0xFF1E293B),
-                    child: _isLoggedIn
-                        ? (((_currentUser?['username'] ?? '') as String).startsWith('+') ||
-                                RegExp(r'^\d').hasMatch((_currentUser?['username'] ?? '') as String)
-                            ? const Icon(Icons.phone_android, size: 16, color: Color(0xFF38BDF8))
-                            : Text(
-                                ((_currentUser?['username'] ?? 'U') as String).substring(0, 1).toUpperCase(),
-                                style: const TextStyle(
-                                  color: Color(0xFF38BDF8),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ))
-                        : const Icon(Icons.person_outline, size: 18, color: Colors.white70),
-                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
