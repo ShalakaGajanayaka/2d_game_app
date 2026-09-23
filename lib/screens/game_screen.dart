@@ -333,6 +333,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   void _toggleBet(int betIndex) {
     FocusManager.instance.primaryFocus?.unfocus();
     
+    if (!_isLoggedIn) {
+      _showAuthDialog();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in or register to place bets! ✈️'),
+          backgroundColor: Color(0xFF38BDF8),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     if (_status == GameStatus.waiting) {
       double currentBet = betIndex == 1 ? _betAmount1 : _betAmount2;
       bool isPlaced = betIndex == 1 ? _isBetPlaced1 : _isBetPlaced2;
@@ -436,7 +448,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     String btnText = 'WAITING';
     List<BoxShadow> btnShadow = [];
     
-    if (isWaiting) {
+    if (!_isLoggedIn) {
+      btnGradient = const LinearGradient(colors: [Color(0xFF0284C7), Color(0xFF0369A1)]);
+      btnText = 'LOGIN\nTO BET';
+      btnShadow = [BoxShadow(color: const Color(0xFF0284C7).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
+    } else if (isWaiting) {
       if (isPlaced) {
         btnGradient = const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFB91C1C)]);
         btnText = 'CANCEL BET';
@@ -582,6 +598,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             flex: 2,
             child: GestureDetector(
               onTap: () {
+                if (!_isLoggedIn) {
+                  _showAuthDialog();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please sign in or register to place bets! ✈️'),
+                      backgroundColor: Color(0xFF38BDF8),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                  return;
+                }
                 if (isWaiting) {
                   _toggleBet(betIndex);
                 } else if (isPlaying && isPlaced && !hasCashedOut) {
@@ -1767,27 +1794,53 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             ),
           ),
           Center(
-            child: Container(
-              margin: const EdgeInsets.only(right: 8.0),
-              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
-                ]
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            child: _isLoggedIn
+                ? Container(
+                    margin: const EdgeInsets.only(right: 8.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}',
+                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  )
+                : InkWell(
+                    onTap: _showAuthDialog,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))
+                        ],
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text(
+                            'Deposit',
+                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ],
-              ),
-            ),
           ),
           // Profile Avatar Icon (Tap to Login / View Profile)
           Padding(
