@@ -995,8 +995,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     bool isLoginTab = true;
     bool isLoading = false;
     String? errorMessage;
-    Currency regCurrency = _userCurrency;
-    CountryCode regCountryCode = CountryCode.fromCurrency(regCurrency.code);
+    CountryCode regCountryCode = CountryCode.defaultCountry;
+    Currency regCurrency = Currency.getByCode(regCountryCode.currencyCode);
+
+    // Feature Flags: components preserved intact in code, hidden per user requirement
+    const bool showWelcomeBanner = false;
+    const bool showCurrencyPicker = false;
 
     showDialog(
       context: context,
@@ -1104,7 +1108,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 16),
 
-                  if (!isLoginTab)
+                  // Welcome Bonus Banner (Preserved in code, hidden per user specification)
+                  if (!isLoginTab && showWelcomeBanner)
                     Container(
                       margin: const EdgeInsets.only(bottom: 14),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1145,6 +1150,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               if (picked != null) {
                                 setDialogState(() {
                                   regCountryCode = picked;
+                                  // Automatically select currency according to country code!
+                                  regCurrency = Currency.getByCode(picked.currencyCode);
                                 });
                               }
                             },
@@ -1245,8 +1252,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 12),
 
-                  // Currency Selector (Register Tab Only)
-                  if (!isLoginTab) ...[
+                  // Currency Selector (Preserved in code, hidden per requirement; auto-derived from country code)
+                  if (!isLoginTab && showCurrencyPicker) ...[
                     InkWell(
                       onTap: () async {
                         final picked = await CurrencyPickerSheet.show(context, regCurrency);
@@ -1384,7 +1391,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Welcome, $fullIdentifier! (${regCurrency.code} - ${regCurrency.symbol}) 🎉'),
+                                      content: Text('Welcome, $fullIdentifier! (${regCurrency.code}) 🎉'),
                                       backgroundColor: const Color(0xFF10B981),
                                       duration: const Duration(seconds: 2),
                                     ),

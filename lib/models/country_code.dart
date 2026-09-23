@@ -13,6 +13,69 @@ class CountryCode {
 
   String get displayName => '$flag $name ($dialCode)';
 
+  /// Maps the country ISO code to its primary national currency code
+  String get currencyCode {
+    switch (code.toUpperCase()) {
+      case 'LK': return 'LKR';
+      case 'US': return 'USD';
+      case 'GB': return 'GBP';
+      case 'IN': return 'INR';
+      case 'AE': return 'AED';
+      case 'AU': return 'AUD';
+      case 'CA': return 'CAD';
+      case 'SG': return 'SGD';
+      case 'MY': return 'MYR';
+      case 'QA': return 'QAR';
+      case 'SA': return 'SAR';
+      case 'JP': return 'JPY';
+      case 'CN': return 'CNY';
+      case 'NZ': return 'NZD';
+      case 'CH': return 'CHF';
+      case 'DE':
+      case 'FR':
+      case 'IT':
+      case 'ES':
+      case 'NL':
+      case 'BE':
+      case 'AT':
+      case 'GR':
+      case 'IE':
+      case 'PT':
+      case 'FI': return 'EUR';
+      case 'RU': return 'RUB';
+      case 'BR': return 'BRL';
+      case 'ZA': return 'ZAR';
+      case 'KR': return 'KRW';
+      case 'TH': return 'THB';
+      case 'ID': return 'IDR';
+      case 'PH': return 'PHP';
+      case 'VN': return 'VND';
+      case 'PK': return 'PKR';
+      case 'BD': return 'BDT';
+      case 'NP': return 'NPR';
+      case 'KW': return 'KWD';
+      case 'OM': return 'OMR';
+      case 'BH': return 'BHD';
+      case 'TR': return 'TRY';
+      case 'EG': return 'EGP';
+      case 'NG': return 'NGN';
+      case 'KE': return 'KES';
+      case 'MX': return 'MXN';
+      case 'AR': return 'ARS';
+      case 'CL': return 'CLP';
+      case 'CO': return 'COP';
+      case 'PE': return 'PEN';
+      case 'PL': return 'PLN';
+      case 'CZ': return 'CZK';
+      case 'HU': return 'HUF';
+      case 'RO': return 'RON';
+      case 'SE': return 'SEK';
+      case 'NO': return 'NOK';
+      case 'DK': return 'DKK';
+      default: return 'USD';
+    }
+  }
+
   static const CountryCode defaultCountry = CountryCode(
     name: 'Sri Lanka',
     code: 'LK',

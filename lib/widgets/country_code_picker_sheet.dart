@@ -277,54 +277,57 @@ class _CountryCodePickerSheetState extends State<CountryCodePickerSheet> {
                             width: isSelected ? 1.5 : 1.0,
                           ),
                         ),
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                          leading: Text(
-                            country.flag,
-                            style: const TextStyle(fontSize: 26),
-                          ),
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  country.name,
-                                  style: TextStyle(
-                                    color: isSelected ? const Color(0xFF38BDF8) : Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                            leading: Text(
+                              country.flag,
+                              style: const TextStyle(fontSize: 26),
+                            ),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    country.name,
+                                    style: TextStyle(
+                                      color: isSelected ? const Color(0xFF38BDF8) : Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? const Color(0xFF38BDF8).withOpacity(0.25)
-                                      : const Color(0xFF0F172A),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
                                     color: isSelected
-                                        ? const Color(0xFF38BDF8)
-                                        : const Color(0xFF334155),
+                                        ? const Color(0xFF38BDF8).withOpacity(0.25)
+                                        : const Color(0xFF0F172A),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xFF38BDF8)
+                                          : const Color(0xFF334155),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    country.dialCode,
+                                    style: TextStyle(
+                                      color: isSelected ? const Color(0xFF38BDF8) : Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                                child: Text(
-                                  country.dialCode,
-                                  style: TextStyle(
-                                    color: isSelected ? const Color(0xFF38BDF8) : Colors.white70,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            trailing: isSelected
+                                ? const Icon(Icons.check_circle, color: Color(0xFF38BDF8), size: 18)
+                                : null,
+                            onTap: () => widget.onCountrySelected(country),
                           ),
-                          trailing: isSelected
-                              ? const Icon(Icons.check_circle, color: Color(0xFF38BDF8), size: 18)
-                              : null,
-                          onTap: () => widget.onCountrySelected(country),
                         ),
                       );
                     },
