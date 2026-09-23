@@ -29,7 +29,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   GameStatus _status = GameStatus.waiting;
   
   double _balance = 1000.0;
-  Currency _userCurrency = Currency.defaultCurrency;
+  Currency _userCurrency = (DateTime.now().timeZoneOffset.inMinutes == 330 ||
+          DateTime.now().timeZoneName.toUpperCase().contains('COLOMBO'))
+      ? Currency.getByCode('LKR')
+      : Currency.defaultCurrency;
   bool _isLoggedIn = false;
   Map<String, dynamic>? _currentUser;
   String? _authToken;
@@ -317,8 +320,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       _authToken = null;
       _currentUser = null;
       _balance = 1000.0;
-      _userCurrency = Currency.defaultCurrency;
     });
+    _detectGeoCurrency();
   }
 
   void _initSocket() {
