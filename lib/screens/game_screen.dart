@@ -98,37 +98,70 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   Future<void> _detectGeoCurrency() async {
     try {
-      // 1. Instant detection via device locale (zero latency fallback)
+      // Tier 1: Instant zero-latency Timezone detection (no network delay)
       try {
-        final localeCountry = ui.PlatformDispatcher.instance.locale.countryCode;
-        if (localeCountry != null && localeCountry.isNotEmpty) {
-          final mapped = CountryCode.fromCountryCode(localeCountry).currencyCode;
-          final localCur = Currency.getByCode(mapped);
+        final tzName = DateTime.now().timeZoneName.toUpperCase();
+        final tzOffsetMin = DateTime.now().timeZoneOffset.inMinutes;
+
+        // Sri Lanka is UTC+05:30 (offset = 330 minutes)
+        if (tzOffsetMin == 330 || tzName.contains('COLOMBO') || tzName.contains('LK') || tzName.contains('+05:30')) {
           if (mounted && !_isLoggedIn) {
             setState(() {
-              _userCurrency = localCur;
+              _userCurrency = Currency.getByCode('LKR');
             });
           }
         }
       } catch (_) {}
 
-      // 2. Network-level accurate Geo-IP detection via NestJS backend
-      final url = Uri.parse('${_getServerBaseUrl()}/auth/detect-currency');
-      final res = await http.get(url).timeout(const Duration(seconds: 4));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final currencyCode = data['currency'] as String?;
-        if (currencyCode != null && currencyCode.isNotEmpty) {
-          final detectedCur = Currency.getByCode(currencyCode);
-          if (mounted && !_isLoggedIn) {
-            setState(() {
-              _userCurrency = detectedCur;
-            });
+      // Tier 2: Query NestJS Backend Geo-IP endpoint with timezone context
+      bool backendResolved = false;
+      try {
+        final tzName = DateTime.now().timeZoneName;
+        final tzOffsetMin = DateTime.now().timeZoneOffset.inMinutes;
+        final url = Uri.parse(
+          '${_getServerBaseUrl()}/auth/detect-currency?tz=${Uri.encodeComponent(tzName)}&offset=$tzOffsetMin',
+        );
+        final res = await http.get(url).timeout(const Duration(seconds: 3));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          final isLocal = data['isLocal'] == true;
+          final currencyCode = data['currency'] as String?;
+
+          if (currencyCode != null && currencyCode.isNotEmpty) {
+            if (mounted && !_isLoggedIn) {
+              setState(() {
+                _userCurrency = Currency.getByCode(currencyCode);
+              });
+            }
+            if (!isLocal) {
+              backendResolved = true;
+            }
           }
         }
+      } catch (e) {
+        debugPrint('Backend detect-currency notice: $e');
+      }
+
+      // Tier 3: Edge fallback for Web / localhost dev where backend only sees loopback IP
+      if (!backendResolved) {
+        try {
+          final edgeRes = await http.get(Uri.parse('https://api.country.is')).timeout(const Duration(seconds: 3));
+          if (edgeRes.statusCode == 200) {
+            final data = jsonDecode(edgeRes.body);
+            final country = data['country'] as String?;
+            if (country != null && country.isNotEmpty) {
+              final mappedCurCode = CountryCode.fromCountryCode(country).currencyCode;
+              if (mounted && !_isLoggedIn) {
+                setState(() {
+                  _userCurrency = Currency.getByCode(mappedCurCode);
+                });
+              }
+            }
+          }
+        } catch (_) {}
       }
     } catch (e) {
-      debugPrint('Geo-currency detection notice: $e');
+      debugPrint('Geo-currency overall detection notice: $e');
     }
   }
 
