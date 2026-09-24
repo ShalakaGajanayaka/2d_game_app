@@ -27,10 +27,16 @@ class WithdrawalSheet extends StatefulWidget {
 
 class _WithdrawalSheetState extends State<WithdrawalSheet> {
   final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _accountNumberController = TextEditingController();
-  final TextEditingController _accountHolderController = TextEditingController();
   final TextEditingController _bankNameController = TextEditingController();
   final TextEditingController _branchNameController = TextEditingController();
+  final TextEditingController _bankAccNumController = TextEditingController();
+  final TextEditingController _bankAccHolderController = TextEditingController();
+  
+  final TextEditingController _ipayMobileController = TextEditingController();
+  final TextEditingController _ipayHolderController = TextEditingController();
+  
+  final TextEditingController _upayMobileController = TextEditingController();
+  final TextEditingController _upayHolderController = TextEditingController();
 
   String _selectedMethod = 'BANK'; // 'BANK', 'IPAY', 'UPAY'
   bool _isSubmitting = false;
@@ -73,9 +79,15 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
             _bankNameController.text = savedBank;
           }
 
-          _accountNumberController.text = prefs.getString('saved_account_number') ?? '';
-          _accountHolderController.text = prefs.getString('saved_account_holder') ?? '';
-          _branchNameController.text = prefs.getString('saved_branch_name') ?? '';
+          _bankAccNumController.text = prefs.getString('saved_bank_acc_num') ?? '';
+          _bankAccHolderController.text = prefs.getString('saved_bank_acc_holder') ?? '';
+          _branchNameController.text = prefs.getString('saved_bank_branch') ?? '';
+
+          _ipayMobileController.text = prefs.getString('saved_ipay_mobile') ?? '';
+          _ipayHolderController.text = prefs.getString('saved_ipay_holder') ?? '';
+
+          _upayMobileController.text = prefs.getString('saved_upay_mobile') ?? '';
+          _upayHolderController.text = prefs.getString('saved_upay_holder') ?? '';
         });
       }
     } catch (e) {
@@ -88,9 +100,15 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('saved_withdrawal_method', _selectedMethod);
       await prefs.setString('saved_bank_name', _bankNameController.text);
-      await prefs.setString('saved_account_number', _accountNumberController.text);
-      await prefs.setString('saved_account_holder', _accountHolderController.text);
-      await prefs.setString('saved_branch_name', _branchNameController.text);
+      await prefs.setString('saved_bank_acc_num', _bankAccNumController.text);
+      await prefs.setString('saved_bank_acc_holder', _bankAccHolderController.text);
+      await prefs.setString('saved_bank_branch', _branchNameController.text);
+
+      await prefs.setString('saved_ipay_mobile', _ipayMobileController.text);
+      await prefs.setString('saved_ipay_holder', _ipayHolderController.text);
+
+      await prefs.setString('saved_upay_mobile', _upayMobileController.text);
+      await prefs.setString('saved_upay_holder', _upayHolderController.text);
     } catch (e) {
       debugPrint('Failed to save withdrawal details: $e');
     }
@@ -99,10 +117,14 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
   @override
   void dispose() {
     _amountController.dispose();
-    _accountNumberController.dispose();
-    _accountHolderController.dispose();
     _bankNameController.dispose();
     _branchNameController.dispose();
+    _bankAccNumController.dispose();
+    _bankAccHolderController.dispose();
+    _ipayMobileController.dispose();
+    _ipayHolderController.dispose();
+    _upayMobileController.dispose();
+    _upayHolderController.dispose();
     super.dispose();
   }
 
@@ -136,8 +158,8 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
     if (_selectedMethod == 'BANK') {
       final bank = _bankNameController.text.trim();
-      final accNum = _accountNumberController.text.trim();
-      final holder = _accountHolderController.text.trim();
+      final accNum = _bankAccNumController.text.trim();
+      final holder = _bankAccHolderController.text.trim();
       final branch = _branchNameController.text.trim();
 
       if (bank.isEmpty || accNum.isEmpty || holder.isEmpty) {
@@ -151,13 +173,26 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
         'accountHolder': holder,
         'branchName': branch,
       };
-    } else {
-      // iPay / UPay
-      final mobile = _accountNumberController.text.trim();
-      final holder = _accountHolderController.text.trim();
+    } else if (_selectedMethod == 'IPAY') {
+      final mobile = _ipayMobileController.text.trim();
+      final holder = _ipayHolderController.text.trim();
 
       if (mobile.isEmpty || mobile.length < 9) {
-        setState(() => _errorMessage = 'Please enter a valid ${_selectedMethod.toUpperCase()} mobile number');
+        setState(() => _errorMessage = 'Please enter a valid IPAY mobile number');
+        return;
+      }
+
+      payoutDetails = {
+        'mobileNumber': mobile,
+        'accountNumber': mobile,
+        'accountHolder': holder.isNotEmpty ? holder : 'Wallet User',
+      };
+    } else {
+      final mobile = _upayMobileController.text.trim();
+      final holder = _upayHolderController.text.trim();
+
+      if (mobile.isEmpty || mobile.length < 9) {
+        setState(() => _errorMessage = 'Please enter a valid UPAY mobile number');
         return;
       }
 
@@ -469,7 +504,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
                 // Account Number
                 _buildTextField(
-                  controller: _accountNumberController,
+                  controller: _bankAccNumController,
                   hint: 'Bank Account Number',
                   icon: Icons.numbers,
                   keyboardType: TextInputType.number,
@@ -479,7 +514,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
                 // Account Holder Name
                 _buildTextField(
-                  controller: _accountHolderController,
+                  controller: _bankAccHolderController,
                   hint: 'Account Holder Full Name',
                   icon: Icons.person,
                 ),
@@ -499,7 +534,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                 ),
                 const SizedBox(height: 8),
                 _buildTextField(
-                  controller: _accountNumberController,
+                  controller: _selectedMethod == 'IPAY' ? _ipayMobileController : _upayMobileController,
                   hint: 'Registered Mobile Number (e.g. 0771234567)',
                   icon: Icons.phone_android,
                   keyboardType: TextInputType.phone,
@@ -507,7 +542,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                 ),
                 const SizedBox(height: 10),
                 _buildTextField(
-                  controller: _accountHolderController,
+                  controller: _selectedMethod == 'IPAY' ? _ipayHolderController : _upayHolderController,
                   hint: 'Wallet Account Holder Name',
                   icon: Icons.person,
                 ),
