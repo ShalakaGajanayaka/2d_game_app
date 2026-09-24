@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/currency.dart';
@@ -472,6 +473,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                   hint: 'Bank Account Number',
                   icon: Icons.numbers,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 ),
                 const SizedBox(height: 10),
 
@@ -501,6 +503,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                   hint: 'Registered Mobile Number (e.g. 0771234567)',
                   icon: Icons.phone_android,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 ),
                 const SizedBox(height: 10),
                 _buildTextField(
@@ -668,6 +671,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
     required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -678,6 +682,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           hintText: hint,
