@@ -2487,31 +2487,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                   ),
                                 ),
                               ),
-                              InkWell(
-                                onTap: _showWithdrawalSheet,
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  margin: const EdgeInsets.only(right: 8.0),
-                                  padding: const EdgeInsets.symmetric(horizontal: 11.0, vertical: 6.0),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(colors: [Color(0xFFF43F5E), Color(0xFFE11D48)]),
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(color: const Color(0xFFF43F5E).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))
-                                    ],
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.arrow_upward_rounded, size: 15, color: Colors.white),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Withdraw',
-                                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.3),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
                             ],
                           )
                         : InkWell(
