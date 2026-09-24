@@ -75,9 +75,14 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final details = data['savedWithdrawalDetails'];
+        var details = data['savedWithdrawalDetails'];
+        if (details is String) {
+          try {
+            details = jsonDecode(details);
+          } catch (_) {}
+        }
         
-        if (mounted && details != null) {
+        if (mounted && details != null && details is Map) {
           setState(() {
             if (details['BANK'] != null) {
               final bank = details['BANK'];
