@@ -34,6 +34,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
   String _selectedMethod = 'BANK'; // 'BANK', 'IPAY', 'UPAY'
   bool _isSubmitting = false;
   String? _errorMessage;
+  bool _saveDetailsCheckbox = true;
 
   final List<String> _sriLankaBanks = [
     'Commercial Bank of Ceylon',
@@ -189,7 +190,9 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         if (!mounted) return;
-        await _saveDetails();
+        if (_saveDetailsCheckbox) {
+          await _saveDetails();
+        }
         Navigator.of(context).pop(); // close sheet
 
         widget.onWithdrawalSubmitted?.call();
@@ -507,7 +510,34 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                 ),
               ],
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 4),
+
+              // Save Details Checkbox
+              Theme(
+                data: ThemeData(
+                  unselectedWidgetColor: Colors.white54,
+                ),
+                child: CheckboxListTile(
+                  value: _saveDetailsCheckbox,
+                  activeColor: const Color(0xFF38BDF8),
+                  checkColor: Colors.black,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text(
+                    'Save these details for future withdrawals',
+                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _saveDetailsCheckbox = val;
+                      });
+                    }
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 6),
 
               // Escrow notice banner
               Container(
