@@ -72,9 +72,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   late IO.Socket socket;
   double _serverStartTime = 0;
   
+  bool _showZeroBalanceDeposit = false;
+  Timer? _zeroBalanceToggleTimer;
+
   @override
   void initState() {
     super.initState();
+    
+    _zeroBalanceToggleTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted && _isLoggedIn && _balance == 0) {
+        setState(() {
+          _showZeroBalanceDeposit = !_showZeroBalanceDeposit;
+        });
+      } else if (mounted && _showZeroBalanceDeposit) {
+        setState(() {
+          _showZeroBalanceDeposit = false;
+        });
+      }
+    });
     
     _controller = AnimationController(
       vsync: this,
@@ -604,6 +619,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    _zeroBalanceToggleTimer?.cancel();
     socket.dispose();
     _controller.dispose();
     _betController1.dispose();
@@ -2434,10 +2450,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   ),
                   Center(
                     child: _isLoggedIn
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              InkWell(
+                        ? (_balance > 0
+                            ? InkWell(
                                 onTap: _showProfileSheet,
                                 borderRadius: BorderRadius.circular(20),
                                 child: Container(
@@ -2451,6 +2465,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                     ],
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
                                       const SizedBox(width: 6),
@@ -2461,34 +2476,68 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                     ],
                                   ),
                                 ),
-                              ),
-                              InkWell(
-                                onTap: _showDepositSheet,
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  margin: const EdgeInsets.only(right: 6.0),
-                                  padding: const EdgeInsets.symmetric(horizontal: 11.0, vertical: 6.0),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))
-                                    ],
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.add, size: 15, color: Colors.white),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Deposit',
-                                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                              )
+                            : AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 500),
+                                transitionBuilder: (Widget child, Animation<double> animation) {
+                                  return FadeTransition(opacity: animation, child: child);
+                                },
+                                child: _showZeroBalanceDeposit
+                                    ? InkWell(
+                                        key: const ValueKey('deposit'),
+                                        onTap: _showDepositSheet,
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: Container(
+                                          margin: const EdgeInsets.only(right: 6.0),
+                                          padding: const EdgeInsets.symmetric(horizontal: 13.0, vertical: 6.0),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                                            borderRadius: BorderRadius.circular(20),
+                                            boxShadow: [
+                                              BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))
+                                            ],
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.add, size: 15, color: Colors.white),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'Deposit',
+                                                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                    : InkWell(
+                                        key: const ValueKey('balance'),
+                                        onTap: _showProfileSheet,
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: Container(
+                                          margin: const EdgeInsets.only(right: 6.0),
+                                          padding: const EdgeInsets.symmetric(horizontal: 13.0, vertical: 6.0),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+                                            borderRadius: BorderRadius.circular(20),
+                                            boxShadow: [
+                                              BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
+                                            ],
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                '${_userCurrency.symbol}${_balance.toStringAsFixed(2)}',
+                                                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
+                              ))
                         : InkWell(
                             onTap: _showAuthDialog,
                             borderRadius: BorderRadius.circular(20),
