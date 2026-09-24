@@ -19,6 +19,7 @@ import '../widgets/country_code_picker_sheet.dart';
 import '../widgets/deposit_sheet.dart';
 import '../widgets/withdrawal_sheet.dart';
 import '../widgets/transaction_history_sheet.dart';
+import '../widgets/bet_history_sheet.dart';
 import '../models/live_bets_adapter.dart';
 
 class GameScreen extends StatefulWidget {
@@ -414,6 +415,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               if (_history.length > 20) {
                  _history.removeLast();
               }
+
+              if (_isBetPlaced1) {
+                double winAmt = _hasCashedOut1 ? (_betAmount1 * _cashedOutMultiplier1) : 0.0;
+                _saveBetHistory(_betAmount1, _hasCashedOut1 ? _cashedOutMultiplier1 : null, _currentMultiplier, winAmt);
+              }
+              if (_isBetPlaced2) {
+                double winAmt = _hasCashedOut2 ? (_betAmount2 * _cashedOutMultiplier2) : 0.0;
+                _saveBetHistory(_betAmount2, _hasCashedOut2 ? _cashedOutMultiplier2 : null, _currentMultiplier, winAmt);
+              }
+
               _isBetPlaced1 = false;
               _isBetPlaced2 = false;
               _hasCashedOut1 = false;
@@ -615,6 +626,29 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         });
       }
     });
+  }
+
+  Future<void> _saveBetHistory(double betAmount, double? cashedOutMultiplier, double crashPoint, double winAmount) async {
+    if (_authToken == null) return;
+    try {
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/bet-history');
+      await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_authToken',
+        },
+        body: jsonEncode({
+          'betAmount': betAmount,
+          'cashOutMultiplier': cashedOutMultiplier,
+          'crashPoint': crashPoint,
+          'winAmount': winAmount,
+          'currency': _userCurrency.code,
+        }),
+      );
+    } catch (e) {
+      debugPrint('Failed to save bet history: $e');
+    }
   }
 
   @override
@@ -2084,6 +2118,23 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _showBetHistorySheet() {
+    if (!_isLoggedIn || _authToken == null) {
+      _showAuthDialog();
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BetHistorySheet(
+        currency: _userCurrency,
+        authToken: _authToken!,
+        serverBaseUrl: _getServerBaseUrl(),
+      ),
+    );
+  }
+
   void _showTransactionHistorySheet() {
     if (!_isLoggedIn || _authToken == null) {
       _showAuthDialog();
@@ -2307,6 +2358,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         onPressed: () {
                           Navigator.of(ctx).pop();
                           _showTransactionHistorySheet();
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Bet History Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.history, color: Color(0xFF38BDF8), size: 18),
+                        label: const Text(
+                          'My Bet History',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1E293B),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: const Color(0xFF38BDF8).withOpacity(0.3)),
+                          ),
+                          elevation: 1,
+                        ),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          _showBetHistorySheet();
                         },
                       ),
                     ),
