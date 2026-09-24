@@ -195,7 +195,7 @@ class _BetHistorySheetState extends State<BetHistorySheet> {
             color: const Color(0xFF1E293B),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isWin ? Colors.greenAccent.withOpacity(0.3) : Colors.redAccent.withOpacity(0.3),
+              color: isWin ? Colors.greenAccent.withOpacity(0.3) : Colors.white.withOpacity(0.1),
               width: 1,
             ),
           ),
@@ -209,12 +209,12 @@ class _BetHistorySheetState extends State<BetHistorySheet> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: isWin ? Colors.greenAccent.withOpacity(0.1) : Colors.redAccent.withOpacity(0.1),
+                          color: isWin ? Colors.greenAccent.withOpacity(0.1) : Colors.white.withOpacity(0.05),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          isWin ? Icons.arrow_upward : Icons.arrow_downward,
-                          color: isWin ? Colors.greenAccent : Colors.redAccent,
+                          isWin ? Icons.arrow_upward : Icons.close,
+                          color: isWin ? Colors.greenAccent : Colors.white54,
                           size: 20,
                         ),
                       ),
@@ -225,7 +225,7 @@ class _BetHistorySheetState extends State<BetHistorySheet> {
                           Text(
                             isWin ? 'Cashed Out' : 'Crashed',
                             style: TextStyle(
-                              color: isWin ? Colors.greenAccent : Colors.redAccent,
+                              color: isWin ? Colors.greenAccent : Colors.white70,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
@@ -243,9 +243,9 @@ class _BetHistorySheetState extends State<BetHistorySheet> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        isWin ? '+$currency ${winAmount.toStringAsFixed(2)}' : '-$currency ${betAmount.toStringAsFixed(2)}',
+                        isWin ? '+$currency ${winAmount.toStringAsFixed(2)}' : '$currency ${betAmount.toStringAsFixed(2)}',
                         style: TextStyle(
-                          color: isWin ? Colors.greenAccent : Colors.redAccent,
+                          color: isWin ? Colors.greenAccent : Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
