@@ -1000,7 +1000,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     children: [
                       const Text('POOL: ', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
                       Text(
-                        '${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(totalPool)}',
+                        '${LiveBetsAdapter.formatAmount(totalPool)}',
                         style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w900),
                       ),
                     ],
@@ -1127,7 +1127,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.center,
                                   child: Text(
-                                    '${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(betAmt)}',
+                                    '${LiveBetsAdapter.formatAmount(betAmt)}',
                                     style: TextStyle(
                                       color: isMe 
                                           ? Colors.white 
@@ -1181,7 +1181,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                               if (winAmt != null) ...[
                                                 const SizedBox(width: 4),
                                                 Text(
-                                                  '+${_userCurrency.symbol}${LiveBetsAdapter.formatAmount(winAmt)}',
+                                                  '+${LiveBetsAdapter.formatAmount(winAmt)}',
                                                   style: TextStyle(
                                                     color: Colors.greenAccent.shade100,
                                                     fontSize: 11,
