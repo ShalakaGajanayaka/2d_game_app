@@ -55,7 +55,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
     super.initState();
     _bankNameController.text = _sriLankaBanks[0];
     if (widget.currentBalance > 0) {
-      _amountController.text = (widget.currentBalance >= 500 ? 500 : widget.currentBalance).toStringAsFixed(0);
+      _amountController.text = (widget.currentBalance >= 2500 ? 2500 : widget.currentBalance).toStringAsFixed(0);
     }
     _loadSavedDetails();
   }
@@ -108,9 +108,9 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
   List<double> get _quickAmounts {
     if (widget.currency.code == 'USD') {
-      return [5.0, 10.0, 25.0, 50.0];
+      return [25.0, 50.0, 100.0, 250.0];
     }
-    return [500.0, 1000.0, 2500.0, 5000.0];
+    return [2500.0, 5000.0, 10000.0, 25000.0];
   }
 
   Future<void> _submitWithdrawal() async {
@@ -127,8 +127,8 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
       return;
     }
 
-    if (widget.currency.code == 'LKR' && amount < 100) {
-      setState(() => _errorMessage = 'Minimum withdrawal amount is LKR 100.00');
+    if (widget.currency.code == 'LKR' && amount < 2500) {
+      setState(() => _errorMessage = 'Minimum withdrawal amount is LKR 2500.00');
       return;
     }
 
