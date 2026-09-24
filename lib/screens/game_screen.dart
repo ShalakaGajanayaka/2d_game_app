@@ -989,23 +989,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Text('POOL: ', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
-                      Text(
-                        '${LiveBetsAdapter.formatAmount(totalPool)}',
-                        style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w900),
-                      ),
-                    ],
-                  ),
-                ),
+
               ],
             ),
           ),
