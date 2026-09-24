@@ -748,7 +748,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(_userCurrency.symbol, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     SizedBox(
                       width: 50,
                       child: TextField(
@@ -815,7 +814,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: const Color(0xFF334155))
                             ),
-                            child: Text('${_userCurrency.symbol}$amount', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                            child: Text('$amount', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       );
