@@ -462,7 +462,7 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
                 ],
               ),
               Text(
-                '-$currency ${amount.toStringAsFixed(2)}',
+                '$currency ${amount.toStringAsFixed(2)}',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
               ),
             ],
