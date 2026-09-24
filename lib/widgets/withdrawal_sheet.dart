@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/currency.dart';
 
 class WithdrawalSheet extends StatefulWidget {
@@ -53,6 +54,43 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
     _bankNameController.text = _sriLankaBanks[0];
     if (widget.currentBalance > 0) {
       _amountController.text = (widget.currentBalance >= 500 ? 500 : widget.currentBalance).toStringAsFixed(0);
+    }
+    _loadSavedDetails();
+  }
+
+  Future<void> _loadSavedDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          final savedMethod = prefs.getString('saved_withdrawal_method');
+          if (savedMethod != null) _selectedMethod = savedMethod;
+
+          final savedBank = prefs.getString('saved_bank_name');
+          if (savedBank != null && _sriLankaBanks.contains(savedBank)) {
+            _bankNameController.text = savedBank;
+          }
+
+          _accountNumberController.text = prefs.getString('saved_account_number') ?? '';
+          _accountHolderController.text = prefs.getString('saved_account_holder') ?? '';
+          _branchNameController.text = prefs.getString('saved_branch_name') ?? '';
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load saved withdrawal details: $e');
+    }
+  }
+
+  Future<void> _saveDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('saved_withdrawal_method', _selectedMethod);
+      await prefs.setString('saved_bank_name', _bankNameController.text);
+      await prefs.setString('saved_account_number', _accountNumberController.text);
+      await prefs.setString('saved_account_holder', _accountHolderController.text);
+      await prefs.setString('saved_branch_name', _branchNameController.text);
+    } catch (e) {
+      debugPrint('Failed to save withdrawal details: $e');
     }
   }
 
@@ -151,6 +189,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         if (!mounted) return;
+        await _saveDetails();
         Navigator.of(context).pop(); // close sheet
 
         widget.onWithdrawalSubmitted?.call();
