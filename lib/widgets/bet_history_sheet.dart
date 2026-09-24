@@ -54,7 +54,7 @@ class _BetHistorySheetState extends State<BetHistorySheet> {
       } else {
         if (mounted) {
           setState(() {
-            _errorMessage = 'Failed to load bet history';
+            _errorMessage = 'Failed to load bet history. Status: ${res.statusCode}\n${res.body}';
             _isLoading = false;
           });
         }
