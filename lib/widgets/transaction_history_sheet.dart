@@ -449,10 +449,10 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF43F5E).withOpacity(0.15),
+                      color: const Color(0xFF38BDF8).withOpacity(0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.arrow_upward, color: Color(0xFFF43F5E), size: 16),
+                    child: const Icon(Icons.arrow_upward, color: Color(0xFF38BDF8), size: 16),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -463,7 +463,7 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
               ),
               Text(
                 '-$currency ${amount.toStringAsFixed(2)}',
-                style: const TextStyle(color: Color(0xFFF43F5E), fontWeight: FontWeight.bold, fontSize: 15),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
               ),
             ],
           ),
