@@ -42,15 +42,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   String? _authToken;
   
   // Bet 1
-  double _betAmount1 = 10.0;
-  final TextEditingController _betController1 = TextEditingController(text: '10.00');
+  double _betAmount1 = 50.0;
+  final TextEditingController _betController1 = TextEditingController(text: '50.00');
   bool _isBetPlaced1 = false;
   double _cashedOutMultiplier1 = 0.0;
   bool _hasCashedOut1 = false;
 
   // Bet 2
-  double _betAmount2 = 10.0;
-  final TextEditingController _betController2 = TextEditingController(text: '10.00');
+  double _betAmount2 = 50.0;
+  final TextEditingController _betController2 = TextEditingController(text: '50.00');
   bool _isBetPlaced2 = false;
   double _cashedOutMultiplier2 = 0.0;
   bool _hasCashedOut2 = false;
@@ -566,6 +566,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           else { _isBetPlaced2 = false; _betAmount2 = currentBet; }
         } else {
           // Place bet
+          if (currentBet < 50) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Minimum bet is 50!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+            );
+            return;
+          }
           if (_balance >= currentBet) {
             _balance -= currentBet;
             if (betIndex == 1) { _isBetPlaced1 = true; _betAmount1 = currentBet; _hasCashedOut1 = false; }
@@ -733,7 +739,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       onTap: isWaiting && !isPlaced
                           ? () {
                               setState(() {
-                                if (betAmount > 1.0) {
+                                if (betAmount > 50.0) {
                                   if (betIndex == 1) { _betAmount1 -= 1.0; _betController1.text = _betAmount1.toStringAsFixed(2); }
                                   else { _betAmount2 -= 1.0; _betController2.text = _betAmount2.toStringAsFixed(2); }
                                 }
@@ -2135,6 +2141,100 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _showEditUsernameDialog() {
+    final TextEditingController nameController = TextEditingController(text: _currentUser?['username'] ?? '');
+    bool isSaving = false;
+    String? errorMessage;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Edit Username', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'New Username',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF38BDF8))),
+                  ),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 8),
+                  Text(errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.of(context).pop(),
+                child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38BDF8)),
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final newName = nameController.text.trim();
+                        if (newName.length < 3) {
+                          setDialogState(() => errorMessage = 'Username must be at least 3 characters');
+                          return;
+                        }
+                        setDialogState(() {
+                          isSaving = true;
+                          errorMessage = null;
+                        });
+                        try {
+                          final res = await http.post(
+                            Uri.parse('${_getServerBaseUrl()}/auth/rename'),
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': 'Bearer $_authToken'
+                            },
+                            body: jsonEncode({'newUsername': newName}),
+                          );
+                          final data = jsonDecode(res.body);
+                          if (res.statusCode == 200 || res.statusCode == 201) {
+                            setState(() {
+                              _currentUser = data;
+                            });
+                            if (!mounted) return;
+                            Navigator.of(context).pop();
+                            _showProfileSheet();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Username updated successfully!'), backgroundColor: Colors.green),
+                            );
+                          } else {
+                            setDialogState(() => errorMessage = data['message'] ?? 'Failed to update username');
+                          }
+                        } catch (e) {
+                          setDialogState(() => errorMessage = 'Network error');
+                        } finally {
+                          if (mounted) {
+                            setDialogState(() => isSaving = false);
+                          }
+                        }
+                      },
+                child: isSaving 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) 
+                  : const Text('SAVE', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _showProfileSheet() {
     showModalBottomSheet(
       context: context,
@@ -2151,10 +2251,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 40,
@@ -2190,9 +2291,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                username,
-                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      username,
+                                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.of(context).pop();
+                                      _showEditUsernameDialog();
+                                    },
+                                    child: const Icon(Icons.edit, color: Colors.white54, size: 18),
+                                  ),
+                                ],
                               ),
                               if (_currentUser?['email'] != null && (_currentUser!['email'] as String).isNotEmpty) ...[
                                 const SizedBox(height: 2),
