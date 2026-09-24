@@ -288,7 +288,7 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
 
   Widget _buildDepositCard(dynamic d) {
     final status = d['status'] ?? 'PENDING';
-    final amount = (d['amount'] as num?)?.toDouble() ?? 0.0;
+    final amount = double.tryParse(d['amount']?.toString() ?? '') ?? 0.0;
     final currency = d['currency'] ?? widget.currency.code;
     final method = (d['paymentMethod'] ?? 'MANUAL').toString().toUpperCase();
     final ref = d['referenceNumber'] ?? '';
@@ -394,7 +394,7 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
 
   Widget _buildWithdrawalCard(dynamic w) {
     final status = w['status'] ?? 'PENDING';
-    final amount = (w['amount'] as num?)?.toDouble() ?? 0.0;
+    final amount = double.tryParse(w['amount']?.toString() ?? '') ?? 0.0;
     final currency = w['currency'] ?? widget.currency.code;
     final method = (w['method'] ?? 'PAYOUT').toString().toUpperCase();
     final note = w['adminNote'];
