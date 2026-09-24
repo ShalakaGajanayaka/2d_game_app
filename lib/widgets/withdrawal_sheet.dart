@@ -68,49 +68,39 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
   Future<void> _loadSavedDetails() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      if (mounted) {
-        setState(() {
-          final savedMethod = prefs.getString('saved_withdrawal_method');
-          if (savedMethod != null) _selectedMethod = savedMethod;
+      final res = await http.get(
+        Uri.parse('${widget.serverBaseUrl}/auth/profile'),
+        headers: {'Authorization': 'Bearer ${widget.authToken}'},
+      );
 
-          final savedBank = prefs.getString('saved_bank_name');
-          if (savedBank != null && _sriLankaBanks.contains(savedBank)) {
-            _bankNameController.text = savedBank;
-          }
-
-          _bankAccNumController.text = prefs.getString('saved_bank_acc_num') ?? '';
-          _bankAccHolderController.text = prefs.getString('saved_bank_acc_holder') ?? '';
-          _branchNameController.text = prefs.getString('saved_bank_branch') ?? '';
-
-          _ipayMobileController.text = prefs.getString('saved_ipay_mobile') ?? '';
-          _ipayHolderController.text = prefs.getString('saved_ipay_holder') ?? '';
-
-          _upayMobileController.text = prefs.getString('saved_upay_mobile') ?? '';
-          _upayHolderController.text = prefs.getString('saved_upay_holder') ?? '';
-        });
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final details = data['savedWithdrawalDetails'];
+        
+        if (mounted && details != null) {
+          setState(() {
+            if (details['BANK'] != null) {
+              final bank = details['BANK'];
+              _bankNameController.text = bank['bankName'] ?? '';
+              _bankAccNumController.text = bank['accountNumber'] ?? '';
+              _bankAccHolderController.text = bank['accountHolder'] ?? '';
+              _branchNameController.text = bank['branchName'] ?? '';
+            }
+            if (details['IPAY'] != null) {
+              final ipay = details['IPAY'];
+              _ipayMobileController.text = ipay['mobileNumber'] ?? '';
+              _ipayHolderController.text = ipay['accountHolder'] ?? '';
+            }
+            if (details['UPAY'] != null) {
+              final upay = details['UPAY'];
+              _upayMobileController.text = upay['mobileNumber'] ?? '';
+              _upayHolderController.text = upay['accountHolder'] ?? '';
+            }
+          });
+        }
       }
     } catch (e) {
       debugPrint('Failed to load saved withdrawal details: $e');
-    }
-  }
-
-  Future<void> _saveDetails() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('saved_withdrawal_method', _selectedMethod);
-      await prefs.setString('saved_bank_name', _bankNameController.text);
-      await prefs.setString('saved_bank_acc_num', _bankAccNumController.text);
-      await prefs.setString('saved_bank_acc_holder', _bankAccHolderController.text);
-      await prefs.setString('saved_bank_branch', _branchNameController.text);
-
-      await prefs.setString('saved_ipay_mobile', _ipayMobileController.text);
-      await prefs.setString('saved_ipay_holder', _ipayHolderController.text);
-
-      await prefs.setString('saved_upay_mobile', _upayMobileController.text);
-      await prefs.setString('saved_upay_holder', _upayHolderController.text);
-    } catch (e) {
-      debugPrint('Failed to save withdrawal details: $e');
     }
   }
 
@@ -219,6 +209,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
           'currency': widget.currency.code,
           'method': _selectedMethod,
           'payoutDetails': payoutDetails,
+          'saveDetails': _saveDetailsCheckbox,
         }),
       );
 
@@ -226,9 +217,6 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         if (!mounted) return;
-        if (_saveDetailsCheckbox) {
-          await _saveDetails();
-        }
         Navigator.of(context).pop(); // close sheet
 
         widget.onWithdrawalSubmitted?.call();
