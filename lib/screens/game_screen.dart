@@ -111,6 +111,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   String _getServerBaseUrl() {
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      if (host != 'localhost' && host != '127.0.0.1' && host.isNotEmpty) {
+        return Uri.base.origin;
+      }
+    }
     String serverUrl = dotenv.env['SERVER_API_URL'] ?? 'http://localhost:3000';
     if (!kIsWeb && Platform.isAndroid) {
       serverUrl = serverUrl.replaceFirst('localhost', '10.0.2.2');
