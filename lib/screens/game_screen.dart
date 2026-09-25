@@ -113,6 +113,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   String _getServerBaseUrl() {
     if (kIsWeb) {
       final host = Uri.base.host;
+      if (host.contains('skyrush.cc')) {
+        return '${Uri.base.scheme}://engine.skyrush.cc';
+      }
       if (host != 'localhost' && host != '127.0.0.1' && host.isNotEmpty) {
         return Uri.base.origin;
       }
