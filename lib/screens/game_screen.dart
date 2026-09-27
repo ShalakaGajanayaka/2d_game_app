@@ -13,6 +13,7 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../models/game_state.dart';
 import '../models/currency.dart';
 import '../widgets/plane_graph.dart';
+import '../widgets/sky_clouds_background.dart';
 import '../widgets/currency_picker_sheet.dart';
 import '../models/country_code.dart';
 import '../widgets/country_code_picker_sheet.dart';
@@ -3034,6 +3035,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
+            Positioned.fill(
+              child: SkyCloudsBackground(
+                isPlaying: _status == GameStatus.playing || _status == GameStatus.spectating,
+                multiplier: _currentMultiplier,
+              ),
+            ),
             if (_status != GameStatus.waiting)
               PlaneGraph(
                 multiplier: _currentMultiplier,
