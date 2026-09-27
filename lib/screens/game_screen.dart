@@ -2081,16 +2081,37 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
                   const SizedBox(height: 12),
                   if (isForgotPasswordMode)
-                    TextButton(
-                      onPressed: () {
-                        setDialogState(() {
-                          isForgotPasswordMode = false;
-                          isOtpSent = false;
-                          errorMessage = null;
-                          successMessage = null;
-                        });
-                      },
-                      child: const Text('Back to Sign In', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13, fontWeight: FontWeight.w600)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isOtpSent) ...[
+                          TextButton(
+                            onPressed: () {
+                              setDialogState(() {
+                                isOtpSent = false;
+                                devOtpCode = null;
+                                otpController.clear();
+                                errorMessage = null;
+                                successMessage = null;
+                              });
+                            },
+                            child: const Text('← Change Email', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        TextButton(
+                          onPressed: () {
+                            setDialogState(() {
+                              isForgotPasswordMode = false;
+                              isOtpSent = false;
+                              devOtpCode = null;
+                              errorMessage = null;
+                              successMessage = null;
+                            });
+                          },
+                          child: const Text('Back to Sign In', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
                     )
                   else
                     TextButton(
@@ -2592,7 +2613,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
-    final bool isMobile = screenWidth < 600;
     final bool isDesktop = screenWidth >= 900 && screenHeight >= 500;
     final bool isShort = screenHeight < 750;
     return Scaffold(
