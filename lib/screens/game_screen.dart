@@ -2855,8 +2855,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.install_mobile, color: Colors.white, size: 14),
-                                SizedBox(width: 4),
+                                _InstallMobileIcon(color: Colors.white, size: 14),
+                                SizedBox(width: 4.5),
                                 Text(
                                   'APP',
                                   style: TextStyle(
@@ -3217,7 +3217,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     color: const Color(0xFF38BDF8).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.install_mobile, color: Color(0xFF38BDF8), size: 24),
+                  child: const _InstallMobileIcon(color: Color(0xFF38BDF8), size: 24),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -3406,5 +3406,67 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       ),
     );
   }
+}
+
+class _InstallMobileIcon extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const _InstallMobileIcon({
+    this.color = Colors.white,
+    this.size = 14,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = size * 0.82;
+    final height = size;
+    return CustomPaint(
+      size: Size(width, height),
+      painter: _InstallMobileIconPainter(color: color),
+    );
+  }
+}
+
+class _InstallMobileIconPainter extends CustomPainter {
+  final Color color;
+  const _InstallMobileIconPainter({this.color = Colors.white});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (size.height / 14.0) * 1.3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final w = size.width;
+    final h = size.height;
+
+    // Phone body rounded rect
+    final phoneRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0.8, 0.8, w - 1.6, h - 1.6),
+      Radius.circular(size.height * 0.16),
+    );
+    canvas.drawRRect(phoneRect, strokePaint);
+
+    // Arrow Stem
+    canvas.drawLine(
+      Offset(w * 0.5, h * 0.28),
+      Offset(w * 0.5, h * 0.65),
+      strokePaint..strokeWidth = (size.height / 14.0) * 1.4,
+    );
+
+    // Arrow Head
+    final arrowPath = Path();
+    arrowPath.moveTo(w * 0.28, h * 0.48);
+    arrowPath.lineTo(w * 0.5, h * 0.68);
+    arrowPath.lineTo(w * 0.72, h * 0.48);
+    canvas.drawPath(arrowPath, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _InstallMobileIconPainter oldDelegate) => oldDelegate.color != color;
 }
 
