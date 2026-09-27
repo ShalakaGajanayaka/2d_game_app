@@ -583,6 +583,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             );
             return;
           }
+          if (currentBet > 20000) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Maximum bet is 20,000!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+            );
+            return;
+          }
           if (_balance >= currentBet) {
             _balance -= currentBet;
             if (betIndex == 1) { _isBetPlaced1 = true; _betAmount1 = currentBet; _hasCashedOut1 = false; }
@@ -753,8 +759,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           ? () {
                               setState(() {
                                 if (betAmount > 50.0) {
-                                  if (betIndex == 1) { _betAmount1 -= 1.0; _betController1.text = _betAmount1.toStringAsFixed(2); }
-                                  else { _betAmount2 -= 1.0; _betController2.text = _betAmount2.toStringAsFixed(2); }
+                                  final double step = betAmount >= 1000 ? 100.0 : (betAmount >= 200 ? 50.0 : 10.0);
+                                  if (betIndex == 1) {
+                                    _betAmount1 = (_betAmount1 - step).clamp(50.0, 20000.0);
+                                    _betController1.text = _betAmount1 % 1 == 0 ? _betAmount1.toInt().toString() : _betAmount1.toStringAsFixed(2);
+                                  } else {
+                                    _betAmount2 = (_betAmount2 - step).clamp(50.0, 20000.0);
+                                    _betController2.text = _betAmount2 % 1 == 0 ? _betAmount2.toInt().toString() : _betAmount2.toStringAsFixed(2);
+                                  }
                                 }
                               });
                             }
@@ -765,9 +777,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         child: const Icon(Icons.remove, color: Colors.white, size: 20),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     SizedBox(
-                      width: 50,
+                      width: 76,
                       child: TextField(
                         controller: controller,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -778,8 +790,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         onChanged: (val) {
                           final parsed = double.tryParse(val);
                           if (parsed != null && parsed > 0) {
-                            if (betIndex == 1) _betAmount1 = parsed;
-                            else _betAmount2 = parsed;
+                            if (betIndex == 1) _betAmount1 = parsed.clamp(1.0, 20000.0);
+                            else _betAmount2 = parsed.clamp(1.0, 20000.0);
                           }
                         },
                       ),
@@ -790,8 +802,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       onTap: isWaiting && !isPlaced
                           ? () {
                               setState(() {
-                                if (betIndex == 1) { _betAmount1 += 1.0; _betController1.text = _betAmount1.toStringAsFixed(2); }
-                                else { _betAmount2 += 1.0; _betController2.text = _betAmount2.toStringAsFixed(2); }
+                                final double step = betAmount >= 1000 ? 100.0 : (betAmount >= 200 ? 50.0 : 10.0);
+                                if (betIndex == 1) {
+                                  _betAmount1 = (_betAmount1 + step).clamp(50.0, 20000.0);
+                                  _betController1.text = _betAmount1 % 1 == 0 ? _betAmount1.toInt().toString() : _betAmount1.toStringAsFixed(2);
+                                } else {
+                                  _betAmount2 = (_betAmount2 + step).clamp(50.0, 20000.0);
+                                  _betController2.text = _betAmount2 % 1 == 0 ? _betAmount2.toInt().toString() : _betAmount2.toStringAsFixed(2);
+                                }
                               });
                             }
                           : null,
@@ -806,39 +824,61 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 const SizedBox(height: 8),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
                   child: Row(
                     children: (_userCurrency.code == 'LKR'
-                            ? [50, 100, 200, 500, 1000]
+                            ? [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
                             : (_userCurrency.code == 'INR'
-                                ? [50, 100, 200, 500, 1000]
-                                : [5, 10, 20, 50, 100]))
+                                ? [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
+                                : [1, 2, 5, 10, 20, 50, 100]))
                         .map((amount) {
+                      final bool isSelected = (betAmount == amount.toDouble());
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 3.5),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: isWaiting && !isPlaced
                               ? () {
                                   setState(() {
-                                    if (betIndex == 1) { _betAmount1 = amount.toDouble(); _betController1.text = _betAmount1.toStringAsFixed(2); }
-                                    else { _betAmount2 = amount.toDouble(); _betController2.text = _betAmount2.toStringAsFixed(2); }
+                                    if (betIndex == 1) {
+                                      _betAmount1 = amount.toDouble();
+                                      _betController1.text = _betAmount1 % 1 == 0 ? _betAmount1.toInt().toString() : _betAmount1.toStringAsFixed(2);
+                                    } else {
+                                      _betAmount2 = amount.toDouble();
+                                      _betController2.text = _betAmount2 % 1 == 0 ? _betAmount2.toInt().toString() : _betAmount2.toStringAsFixed(2);
+                                    }
                                   });
                                 }
                               : null,
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A), 
+                              color: isSelected
+                                  ? const Color(0xFF0284C7).withOpacity(0.35)
+                                  : const Color(0xFF0F172A),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF334155))
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF38BDF8)
+                                    : const Color(0xFF334155),
+                                width: isSelected ? 1.4 : 1.0,
+                              ),
                             ),
-                            child: Text('$amount', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                            child: Text(
+                              '$amount',
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Colors.white70,
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       );
                     }).toList(),
                   ),
-                )
+                ),
               ],
             ),
           ),
