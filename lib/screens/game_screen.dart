@@ -67,6 +67,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   late AnimationController _controller;
   int _countdown = 15;
   
+  bool _showFloatingWin = false;
+  double _floatingWinAmount = 0.0;
+  double _floatingWinMultiplier = 0.0;
+  int _floatingWinKey = 0;
+  Timer? _floatingWinTimer;
   
   late IO.Socket socket;
   double _serverStartTime = 0;
@@ -415,6 +420,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
            } 
            else if (newStatus == GameStatus.crashed) {
               _controller.stop();
+              _floatingWinTimer?.cancel();
+              _showFloatingWin = false;
               _currentMultiplier = data['currentMultiplier'].toDouble();
               _history.insert(0, _currentMultiplier);
               if (_history.length > 20) {
@@ -618,6 +625,19 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       } else {
         _hasCashedOut2 = true;
         _cashedOutMultiplier2 = _currentMultiplier;
+      }
+      _floatingWinAmount = winAmount;
+      _floatingWinMultiplier = _currentMultiplier;
+      _showFloatingWin = true;
+      _floatingWinKey++;
+    });
+
+    _floatingWinTimer?.cancel();
+    _floatingWinTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) {
+        setState(() {
+          _showFloatingWin = false;
+        });
       }
     });
 
@@ -3118,6 +3138,114 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                   ],
+                ),
+              ),
+            if (_showFloatingWin && _status != GameStatus.crashed)
+              IgnorePointer(
+                child: Center(
+                  key: ValueKey('floating_win_$_floatingWinKey'),
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 1500),
+                    tween: Tween<double>(begin: 0.0, end: 1.0),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, progress, child) {
+                      final double translateY = -75.0 * progress;
+                      final double opacity = (1.0 - progress).clamp(0.0, 1.0);
+                      final double scale = 0.88 + 0.12 * (1.0 - (progress - 0.3).abs() * 2).clamp(0.0, 1.0);
+                      return Transform.translate(
+                        offset: Offset(0, translateY),
+                        child: Transform.scale(
+                          scale: scale,
+                          child: Opacity(
+                            opacity: opacity,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('✨', style: TextStyle(fontSize: 18)),
+                                    const SizedBox(width: 4),
+                                    ShaderMask(
+                                      shaderCallback: (bounds) => const LinearGradient(
+                                        colors: [Color(0xFFFFF9C4), Color(0xFFFBBF24), Color(0xFFD97706)],
+                                        stops: [0.0, 0.5, 1.0],
+                                      ).createShader(bounds),
+                                      child: const Text(
+                                        'YOU WIN!',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 2.5,
+                                          shadows: [
+                                            Shadow(color: Color(0xFFF59E0B), blurRadius: 18),
+                                            Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 2)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Text('✨', style: TextStyle(fontSize: 18)),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.6), width: 1.2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF10B981).withOpacity(0.25),
+                                        blurRadius: 16,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '+${_userCurrency.symbol}${_floatingWinAmount.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF10B981),
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.8,
+                                          shadows: [
+                                            Shadow(color: Color(0xFF10B981), blurRadius: 14),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFDE047).withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: const Color(0xFFFDE047).withOpacity(0.6), width: 1),
+                                        ),
+                                        child: Text(
+                                          '${_floatingWinMultiplier.toStringAsFixed(2)}x',
+                                          style: const TextStyle(
+                                            color: Color(0xFFFDE047),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
           ],
