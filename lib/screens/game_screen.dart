@@ -67,10 +67,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   late AnimationController _controller;
   int _countdown = 15;
   
-  bool _showWinMessage = false;
-  double _winAmount = 0.0;
-  double _winMultiplier = 0.0;
-  Timer? _winMessageTimer;
   
   late IO.Socket socket;
   double _serverStartTime = 0;
@@ -419,8 +415,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
            } 
            else if (newStatus == GameStatus.crashed) {
               _controller.stop();
-              _winMessageTimer?.cancel();
-              _showWinMessage = false;
               _currentMultiplier = data['currentMultiplier'].toDouble();
               _history.insert(0, _currentMultiplier);
               if (_history.length > 20) {
@@ -625,10 +619,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         _hasCashedOut2 = true;
         _cashedOutMultiplier2 = _currentMultiplier;
       }
-      
-      _showWinMessage = true;
-      _winAmount = winAmount;
-      _winMultiplier = _currentMultiplier;
     });
 
     _syncBalanceToServer(winDelta: winAmount - currentBet, mult: _currentMultiplier);
@@ -637,15 +627,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       if (mounted) {
         setState(() {
           _recentlyCashedOut.remove(myId);
-        });
-      }
-    });
-    
-    _winMessageTimer?.cancel();
-    _winMessageTimer = Timer(const Duration(milliseconds: 1800), () {
-      if (mounted) {
-        setState(() {
-          _showWinMessage = false;
         });
       }
     });
@@ -718,16 +699,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         btnText = 'CASH OUT\n${(betAmount * _currentMultiplier).toStringAsFixed(2)}';
         btnShadow = [BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
       } else if (hasCashedOut) {
-        btnGradient = LinearGradient(colors: [const Color(0xFF10B981).withOpacity(0.6), const Color(0xFF059669).withOpacity(0.6)]);
-        btnText = 'CASHED OUT\n${(betAmount * cashedOutMult).toStringAsFixed(2)}';
+        btnGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]);
+        btnShadow = [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.5), blurRadius: 12, offset: const Offset(0, 3))];
       }
     } else {
       if (isPlaced && !hasCashedOut) {
         btnGradient = LinearGradient(colors: [const Color(0xFFEF4444).withOpacity(0.6), const Color(0xFFB91C1C).withOpacity(0.6)]);
         btnText = 'LOST';
       } else if (hasCashedOut) {
-        btnGradient = LinearGradient(colors: [const Color(0xFF10B981).withOpacity(0.6), const Color(0xFF059669).withOpacity(0.6)]);
-        btnText = 'WON\n${(betAmount * cashedOutMult).toStringAsFixed(2)}';
+        btnGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]);
+        btnShadow = [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 3))];
       }
     }
 
@@ -738,9 +719,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        border: Border.all(
+          color: hasCashedOut ? const Color(0xFF10B981).withOpacity(0.8) : const Color(0xFF334155),
+          width: hasCashedOut ? 1.8 : 1.5,
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+          if (hasCashedOut)
+            BoxShadow(color: const Color(0xFF10B981).withOpacity(0.18), blurRadius: 14, offset: const Offset(0, 2))
+          else
+            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
         ]
       ),
       child: Row(
@@ -917,13 +904,62 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   gradient: btnGradient,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: btnShadow,
+                  border: hasCashedOut ? Border.all(color: const Color(0xFF34D399), width: 1.5) : null,
                 ),
                 child: Center(
-                  child: Text(
-                    btnText,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
-                  ),
+                  child: hasCashedOut
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'CASHED OUT',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.35),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '${cashedOutMult.toStringAsFixed(2)}x',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFDE047),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '+${_userCurrency.symbol}${(betAmount * cashedOutMult).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          btnText,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                        ),
                 ),
               ),
             ),
@@ -3082,60 +3118,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                   ],
-                ),
-              ),
-            if (_showWinMessage && _status != GameStatus.crashed)
-              Center(
-                key: ValueKey('win_popup_${_winMultiplier}_${_winAmount}'),
-                child: TweenAnimationBuilder(
-                  duration: const Duration(milliseconds: 600),
-                  tween: Tween<double>(begin: 0.0, end: 1.0),
-                  curve: Curves.elasticOut,
-                  builder: (context, double val, child) {
-                    return Transform.scale(
-                      scale: val,
-                      child: Opacity(
-                        opacity: val.clamp(0.0, 1.0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
-                            borderRadius: BorderRadius.circular(30),
-                            boxShadow: [
-                              BoxShadow(color: const Color(0xFF10B981).withOpacity(0.5), blurRadius: 25, spreadRadius: 5)
-                            ],
-                            border: Border.all(color: Colors.white.withOpacity(0.4), width: 2),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'YOU WIN!',
-                                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${_userCurrency.symbol}${_winAmount.toStringAsFixed(2)}',
-                                style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900),
-                              ),
-                              Container(
-                                margin: const EdgeInsets.only(top: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${_winMultiplier.toStringAsFixed(2)}x',
-                                  style: const TextStyle(color: Colors.yellowAccent, fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                              )
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
                 ),
               ),
           ],
