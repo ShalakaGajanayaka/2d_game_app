@@ -2266,7 +2266,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        final username = _currentUser?['username'] ?? 'Aviator Pilot';
+        final username = _currentUser?['username'] ?? 'SkyRush Pilot';
         final gamesPlayed = _currentUser?['gamesPlayed'] ?? 0;
         final totalWon = ((_currentUser?['totalWon'] as num?)?.toDouble() ?? 0.0);
         final bestMult = ((_currentUser?['bestMultiplier'] as num?)?.toDouble() ?? 1.0);
@@ -2356,7 +2356,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                         Icon(Icons.star, color: Colors.amber, size: 14),
                                         SizedBox(width: 4),
                                         Text(
-                                          'VIP AVIATOR PILOT',
+                                          'VIP SKY PILOT',
                                           style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold),
                                         ),
                                       ],
