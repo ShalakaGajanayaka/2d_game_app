@@ -23,10 +23,10 @@ class _SkyCloudsBackgroundState extends State<SkyCloudsBackground>
   @override
   void initState() {
     super.initState();
-    // Continuous loop for infinite parallax flight
+    // Continuous loop for gentle, infinite ambient cloud drift
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 24),
+      duration: const Duration(seconds: 65),
     )..repeat();
   }
 
@@ -45,8 +45,6 @@ class _SkyCloudsBackgroundState extends State<SkyCloudsBackground>
           return CustomPaint(
             painter: _CloudsPainter(
               animationValue: _controller.value,
-              isPlaying: widget.isPlaying,
-              multiplier: widget.multiplier,
             ),
             size: Size.infinite,
           );
@@ -62,7 +60,6 @@ class _CloudSpec {
   final double scale;
   final double speed;
   final double opacity;
-  final bool isWisp;
 
   const _CloudSpec({
     required this.normalizedX,
@@ -70,39 +67,30 @@ class _CloudSpec {
     required this.scale,
     required this.speed,
     required this.opacity,
-    this.isWisp = false,
   });
 }
 
 class _CloudsPainter extends CustomPainter {
   final double animationValue;
-  final bool isPlaying;
-  final double multiplier;
 
   _CloudsPainter({
     required this.animationValue,
-    required this.isPlaying,
-    required this.multiplier,
   });
 
-  // Pre-configured cloud formations for natural parallax distribution
+  // Calm, organic cloud distribution with gentle parallax speeds
   static const List<_CloudSpec> _clouds = [
-    // Distant slow clouds (Layer 1 - deep background)
-    _CloudSpec(normalizedX: 0.10, normalizedY: 0.16, scale: 0.75, speed: 0.7, opacity: 0.040),
-    _CloudSpec(normalizedX: 0.55, normalizedY: 0.28, scale: 0.85, speed: 0.8, opacity: 0.045),
-    _CloudSpec(normalizedX: 0.85, normalizedY: 0.72, scale: 0.70, speed: 0.7, opacity: 0.038),
-    
-    // Altitude speed wisps (Thin aerodynamic streamlines)
-    _CloudSpec(normalizedX: 0.30, normalizedY: 0.22, scale: 1.00, speed: 1.6, opacity: 0.035, isWisp: true),
-    _CloudSpec(normalizedX: 0.75, normalizedY: 0.60, scale: 1.20, speed: 1.8, opacity: 0.040, isWisp: true),
+    // Distant slow clouds (Layer 1 - deep background, ultra-gentle drift)
+    _CloudSpec(normalizedX: 0.10, normalizedY: 0.16, scale: 0.75, speed: 0.32, opacity: 0.040),
+    _CloudSpec(normalizedX: 0.55, normalizedY: 0.28, scale: 0.85, speed: 0.38, opacity: 0.045),
+    _CloudSpec(normalizedX: 0.85, normalizedY: 0.72, scale: 0.70, speed: 0.34, opacity: 0.038),
 
-    // Mid-ground clouds (Layer 2)
-    _CloudSpec(normalizedX: 0.35, normalizedY: 0.48, scale: 1.15, speed: 1.1, opacity: 0.055),
-    _CloudSpec(normalizedX: 0.70, normalizedY: 0.82, scale: 1.05, speed: 1.2, opacity: 0.050),
+    // Mid-ground clouds (Layer 2 - natural depth)
+    _CloudSpec(normalizedX: 0.35, normalizedY: 0.48, scale: 1.15, speed: 0.48, opacity: 0.055),
+    _CloudSpec(normalizedX: 0.70, normalizedY: 0.82, scale: 1.05, speed: 0.52, opacity: 0.050),
 
-    // Foreground clouds (Layer 3 - faster, slightly more defined)
-    _CloudSpec(normalizedX: 0.20, normalizedY: 0.88, scale: 1.35, speed: 1.5, opacity: 0.065),
-    _CloudSpec(normalizedX: 0.90, normalizedY: 0.38, scale: 1.40, speed: 1.4, opacity: 0.060),
+    // Foreground clouds (Layer 3 - subtle, slightly larger silhouettes)
+    _CloudSpec(normalizedX: 0.20, normalizedY: 0.88, scale: 1.35, speed: 0.62, opacity: 0.065),
+    _CloudSpec(normalizedX: 0.90, normalizedY: 0.38, scale: 1.40, speed: 0.58, opacity: 0.060),
   ];
 
   @override
@@ -111,28 +99,20 @@ class _CloudsPainter extends CustomPainter {
     final double height = size.height;
     if (width <= 0 || height <= 0) return;
 
-    // Flight speed multiplier: gentle drift when waiting, picking up speed during active flight
-    final double speedFactor = isPlaying
-        ? (1.3 + (multiplier.clamp(1.0, 10.0) - 1.0) * 0.08)
-        : 0.6;
-
+    // Steady, serene ambient drift: zero acceleration during game rounds
     for (final cloud in _clouds) {
       final double cloudWidth = 140.0 * cloud.scale;
       final double totalSpan = width + cloudWidth * 2;
       
-      // Parallax travel: right to left (simulating forward flight towards top-right)
+      // Parallax travel: right to left (constant, peaceful pace)
       final double travel = (cloud.normalizedX * totalSpan) -
-          (animationValue * totalSpan * cloud.speed * speedFactor);
+          (animationValue * totalSpan * cloud.speed);
       
       // Seamless wrap-around modulo
       final double currentX = (travel % totalSpan) - cloudWidth;
       final double currentY = cloud.normalizedY * height;
 
-      if (cloud.isWisp) {
-        _drawWindWisp(canvas, currentX, currentY, cloud.scale, cloud.opacity);
-      } else {
-        _drawCloud(canvas, currentX, currentY, cloud.scale, cloud.opacity);
-      }
+      _drawCloud(canvas, currentX, currentY, cloud.scale, cloud.opacity);
     }
   }
 
@@ -176,25 +156,8 @@ class _CloudsPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _drawWindWisp(Canvas canvas, double x, double y, double scale, double opacity) {
-    final paint = Paint()
-      ..color = const Color(0xFF38BDF8).withOpacity(opacity)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 2.0 * scale;
-
-    final double wispLength = 110.0 * scale;
-    canvas.drawLine(
-      Offset(x - wispLength / 2, y),
-      Offset(x + wispLength / 2, y),
-      paint,
-    );
-  }
-
   @override
   bool shouldRepaint(covariant _CloudsPainter oldDelegate) {
-    return oldDelegate.animationValue != animationValue ||
-        oldDelegate.isPlaying != isPlaying ||
-        oldDelegate.multiplier != multiplier;
+    return oldDelegate.animationValue != animationValue;
   }
 }
