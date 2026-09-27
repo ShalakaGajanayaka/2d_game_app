@@ -12,6 +12,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SkyRush">
+  <meta name="theme-color" content="#080c14">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
@@ -257,7 +258,7 @@
       <!-- Jet Exhaust Flame -->
       <div class="thruster-glow"></div>
 
-      <!-- Aviator Supersonic Jet SVG -->
+      <!-- SkyRush Supersonic Jet SVG -->
       <svg class="jet-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M21.5 2.5L14 7L3 5L2 6.5L8 11.5L5 15L2 14.5L1 16L5.5 18.5L8 23L9.5 22L9 19L12.5 16L17.5 22L19 21L17 10L21.5 2.5Z" 
               fill="url(#jetGradient)" 
@@ -291,8 +292,44 @@
   </div>
 
   <script>
+    // PWA Install Event Management
+    window.deferredPwaPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      window.deferredPwaPrompt = e;
+      window.dispatchEvent(new CustomEvent('pwa-prompt-available'));
+    });
+
+    window.isPwaInstallAvailable = function() {
+      return window.deferredPwaPrompt !== null;
+    };
+
+    window.triggerPwaPrompt = function() {
+      if (window.deferredPwaPrompt) {
+        window.deferredPwaPrompt.prompt();
+        window.deferredPwaPrompt.userChoice.then(function(choice) {
+          if (choice && choice.outcome === 'accepted') {
+            console.log('SkyRush PWA installed successfully');
+          }
+          window.deferredPwaPrompt = null;
+        });
+        return true;
+      }
+      return false;
+    };
+
+    window.isPwaStandalone = function() {
+      return window.matchMedia('(display-mode: standalone)').matches ||
+             window.navigator.standalone === true ||
+             document.referrer.includes('android-app://');
+    };
+
     window.isIosDevice = function() {
       return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    };
+
+    window.isAndroidDevice = function() {
+      return /Android/i.test(navigator.userAgent);
     };
 
     window.isGameFullscreen = function() {

@@ -13,4 +13,21 @@ class FullscreenService {
   static bool isIosWeb() {
     return impl.isIosWebImpl();
   }
+
+  static bool isAndroidWeb() {
+    return impl.isAndroidWebImpl();
+  }
+
+  static bool isPwaStandalone() {
+    return impl.isPwaStandaloneImpl();
+  }
+
+  static bool isPwaInstallAvailable() {
+    return impl.isPwaInstallAvailableImpl();
+  }
+
+  static bool triggerPwaPrompt() {
+    return impl.triggerPwaPromptImpl();
+  }
 }
+

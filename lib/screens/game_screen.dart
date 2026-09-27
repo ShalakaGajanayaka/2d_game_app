@@ -2830,6 +2830,49 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                   ),
+                  // PWA Install App Button (Visible on mobile/web browsers when not already standalone)
+                  if (kIsWeb && !FullscreenService.isPwaStandalone())
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Center(
+                        child: InkWell(
+                          onTap: _handleInstallApp,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.5)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF38BDF8).withOpacity(0.3),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.install_mobile, color: Colors.white, size: 14),
+                                SizedBox(width: 3),
+                                Text(
+                                  'APP',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10.5,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   // Fullscreen Button
                   Padding(
                     padding: const EdgeInsets.only(right: 10.0),
@@ -3148,6 +3191,126 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _handleInstallApp() {
+    if (kIsWeb) {
+      if (FullscreenService.isPwaInstallAvailable()) {
+        final triggered = FullscreenService.triggerPwaPrompt();
+        if (triggered) return;
+      }
+      if (FullscreenService.isIosWeb()) {
+        _showIosPwaGuide();
+      } else {
+        _showAndroidInstallGuide();
+      }
+    }
+  }
+
+  void _showAndroidInstallGuide() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0F172A),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: Color(0xFF38BDF8), width: 2)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF38BDF8).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.install_mobile, color: Color(0xFF38BDF8), size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Install SkyRush Web App',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Play in full screen without browser bars',
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _buildIosGuideStep(
+              number: '1',
+              icon: Icons.more_vert,
+              text: "Tap the Chrome menu (⋮) in the top-right corner",
+            ),
+            const SizedBox(height: 12),
+            _buildIosGuideStep(
+              number: '2',
+              icon: Icons.add_to_home_screen,
+              text: "Tap 'Install app' or 'Add to Home screen'",
+            ),
+            const SizedBox(height: 12),
+            _buildIosGuideStep(
+              number: '3',
+              icon: Icons.rocket_launch,
+              text: 'Launch SkyRush directly from your Home screen!',
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.download, color: Colors.white, size: 20),
+                      label: const Text('INSTALL NOW', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        if (!FullscreenService.triggerPwaPrompt()) {
+                          FullscreenService.toggleFullscreen();
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

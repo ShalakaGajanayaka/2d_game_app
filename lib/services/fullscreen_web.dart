@@ -21,3 +21,35 @@ bool isIosWebImpl() {
     return false;
   }
 }
+
+bool isAndroidWebImpl() {
+  try {
+    return js.context.callMethod('isAndroidDevice') == true;
+  } catch (_) {
+    return false;
+  }
+}
+
+bool isPwaStandaloneImpl() {
+  try {
+    return js.context.callMethod('isPwaStandalone') == true;
+  } catch (_) {
+    return false;
+  }
+}
+
+bool isPwaInstallAvailableImpl() {
+  try {
+    return js.context.callMethod('isPwaInstallAvailable') == true;
+  } catch (_) {
+    return false;
+  }
+}
+
+bool triggerPwaPromptImpl() {
+  try {
+    return js.context.callMethod('triggerPwaPrompt') == true;
+  } catch (_) {
+    return false;
+  }
+}
