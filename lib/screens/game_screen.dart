@@ -967,44 +967,19 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       displayBets.add(LiveBetsAdapter.localize(rawBet, _userCurrency.code));
     }
 
-    // Dynamic Rank & Sort:
+    // Stable Rank & Sort:
     // 1. Player's bets (isMe) always stay at the very top (#1).
-    // 2. If flight started (PLAYING or CRASHED): Cashed-out winners rank top by highest multiplier.
-    // 3. If in pre-game countdown (WAITING): High-Rollers rank top by Highest Bet Amount.
-    final bool isWaiting = _status == GameStatus.waiting;
-
+    // 2. Fixed order by Highest Bet Amount descending (locked throughout round, never shifting when someone cashes out).
     displayBets.sort((a, b) {
       if (a['isMe'] == true && b['isMe'] != true) return -1;
       if (b['isMe'] == true && a['isMe'] != true) return 1;
 
-      if (!isWaiting) {
-        final aWon = a['cashedOut'] == true;
-        final bWon = b['cashedOut'] == true;
-        if (aWon && !bWon) return -1;
-        if (!aWon && bWon) return 1;
-
-        if (aWon && bWon) {
-          // Sort by Highest Cash Win ($ Win Amount) descending:
-          final double aBetAmt = ((a['bet'] ?? 0) as num).toDouble();
-          final double aMult = ((a['cashedOutMultiplier'] ?? a['mult'] ?? 0) as num).toDouble();
-          final double aWin = a['winAmount'] != null ? ((a['winAmount']) as num).toDouble() : (aBetAmt * aMult);
-
-          final double bBetAmt = ((b['bet'] ?? 0) as num).toDouble();
-          final double bMult = ((b['cashedOutMultiplier'] ?? b['mult'] ?? 0) as num).toDouble();
-          final double bWin = b['winAmount'] != null ? ((b['winAmount']) as num).toDouble() : (bBetAmt * bMult);
-
-          if (bWin != aWin) {
-            return bWin.compareTo(aWin); // Higher cash winnings float to top!
-          }
-          // Tie-breaker: higher multiplier
-          return bMult.compareTo(aMult);
-        }
-      }
-
-      // During Pre-Game (WAITING) and uncashed bets: Sort by Highest Bet Amount descending
       final double aBet = ((a['bet'] ?? 0) as num).toDouble();
       final double bBet = ((b['bet'] ?? 0) as num).toDouble();
-      return bBet.compareTo(aBet);
+      if (bBet != aBet) {
+        return bBet.compareTo(aBet);
+      }
+      return (a['id'] ?? '').toString().compareTo((b['id'] ?? '').toString());
     });
 
     // Calculate total round bets pool
