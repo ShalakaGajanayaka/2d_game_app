@@ -33,12 +33,27 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    body {
+    html, body {
       background-color: #080c14;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       overflow: hidden;
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      position: fixed;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    flt-glass-pane {
+      width: 100% !important;
+      height: 100% !important;
+      touch-action: manipulation !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
     }
 
     /* Fullscreen Preloader Container */
@@ -46,15 +61,21 @@
       position: fixed;
       top: 0;
       left: 0;
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       background: radial-gradient(circle at 50% 40%, #111e38 0%, #080c14 70%, #04060a 100%);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       z-index: 999999;
-      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.5s;
+      transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #skyrush-preloader.fade-out {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
     }
 
     /* Ambient Glow Behind Jet */
@@ -390,30 +411,37 @@
         }
       }
 
+      var isDismissed = false;
       function dismissPreloader() {
+        if (isDismissed) return;
+        isDismissed = true;
         clearInterval(interval);
         updateUI(100);
         if (status) status.innerHTML = '<span style="color:#22c55e;">TAKEOFF INITIATED!</span>';
         
-        setTimeout(function() {
-          if (preloader) {
-            preloader.style.opacity = '0';
-            setTimeout(function() {
-              if (preloader.parentNode) preloader.parentNode.removeChild(preloader);
-            }, 500);
-          }
-        }, 300);
+        if (preloader) {
+          preloader.style.pointerEvents = 'none';
+          preloader.classList.add('fade-out');
+          preloader.style.opacity = '0';
+          
+          setTimeout(function() {
+            if (preloader) {
+              preloader.style.display = 'none';
+              if (preloader.remove) {
+                preloader.remove();
+              } else if (preloader.parentNode) {
+                preloader.parentNode.removeChild(preloader);
+              }
+            }
+          }, 350);
+        }
       }
 
       // Listen for Flutter's first rendered frame
       window.addEventListener('flutter-first-frame', dismissPreloader);
 
-      // Safety timeout: dismiss after 7 seconds max
-      setTimeout(function() {
-        if (preloader && preloader.parentNode) {
-          dismissPreloader();
-        }
-      }, 7000);
+      // Fast safety timeout: dismiss after 3 seconds max so touch is NEVER blocked
+      setTimeout(dismissPreloader, 3000);
     })();
   </script>
 
