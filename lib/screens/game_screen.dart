@@ -893,7 +893,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildBottomBetsPanel() {
+  Widget _buildBottomBetsPanel({bool isSidebar = false}) {
     bool isCrashed = _status == GameStatus.crashed;
     bool isPlaying = _status == GameStatus.playing || _status == GameStatus.spectating;
 
@@ -972,7 +972,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     final bool isMobile = MediaQuery.of(context).size.width < 600;
     return Container(
-      margin: EdgeInsets.fromLTRB(14, 0, 14, isMobile ? 8 : 16),
+      margin: isSidebar
+          ? const EdgeInsets.fromLTRB(14, 6, 8, 14)
+          : EdgeInsets.fromLTRB(14, 0, 14, isMobile ? 8 : 16),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(20),
@@ -2573,8 +2575,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final bool isMobile = MediaQuery.of(context).size.width < 600;
-    final bool isShort = MediaQuery.of(context).size.height < 750;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final bool isMobile = screenWidth < 600;
+    final bool isDesktop = screenWidth >= 900 && screenHeight >= 500;
+    final bool isShort = screenHeight < 750;
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A), // Premium Dark Slate
       appBar: AppBar(
@@ -2875,200 +2880,266 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         bottom: true,
         child: Column(
           children: [
-          if (_showHistoryBar) _buildHistoryBar(),
-          Expanded(
-            flex: 3,
-            child: Container(
-              margin: EdgeInsets.fromLTRB(14, isShort ? 6 : 14, 14, isShort ? 4 : 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF334155), width: 1.5),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 8))
-                    ]
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Stack(
-                  children: [
-                    if (_status != GameStatus.waiting)
-                      PlaneGraph(
-                        multiplier: _currentMultiplier,
-                        isCrashed: _status == GameStatus.crashed,
-                      ),
-                    if (_status == GameStatus.waiting)
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+            if (_showHistoryBar) _buildHistoryBar(),
+            Expanded(
+              child: isDesktop
+                  ? LayoutBuilder(
+                      builder: (context, constraints) {
+                        final double sidebarWidth = (constraints.maxWidth * 0.28).clamp(280.0, 340.0);
+                        final double rightAreaWidth = constraints.maxWidth - sidebarWidth;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text(
-                              'NEXT ROUND IN',
-                              style: TextStyle(color: Colors.white54, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                            SizedBox(
+                              width: sidebarWidth,
+                              child: _buildBottomBetsPanel(isSidebar: true),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '$_countdown',
-                              style: const TextStyle(
-                                color: Colors.white, 
-                                fontSize: 80, 
-                                fontWeight: FontWeight.w900,
-                                shadows: [Shadow(color: Colors.white24, blurRadius: 20)]
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Center(
-                        child: Text(
-                          '${_currentMultiplier.toStringAsFixed(2)}x',
-                          style: TextStyle(
-                            color: _status == GameStatus.crashed ? Colors.redAccent : Colors.white,
-                            fontSize: 72,
-                            fontWeight: FontWeight.w900,
-                            shadows: [
-                              Shadow(
-                                color: (_status == GameStatus.crashed ? Colors.redAccent : Colors.lightBlueAccent).withOpacity(0.6),
-                                blurRadius: 25,
-                              )
-                            ]
-                          ),
-                        ),
-                      ),
-                    if (_status == GameStatus.crashed)
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(height: 180),
-                            ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [Colors.redAccent, Colors.orangeAccent],
-                              ).createShader(bounds),
-                              child: const Text(
-                                'FLEW AWAY!',
-                                style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: 2.0),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_showWinMessage && _status != GameStatus.crashed)
-                      Center(
-                        key: ValueKey('win_popup_${_winMultiplier}_${_winAmount}'),
-                        child: TweenAnimationBuilder(
-                          duration: const Duration(milliseconds: 600),
-                          tween: Tween<double>(begin: 0.0, end: 1.0),
-                          curve: Curves.elasticOut,
-                          builder: (context, double val, child) {
-                            return Transform.scale(
-                              scale: val,
-                              child: Opacity(
-                                opacity: val.clamp(0.0, 1.0),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
-                                    borderRadius: BorderRadius.circular(30),
-                                    boxShadow: [
-                                      BoxShadow(color: const Color(0xFF10B981).withOpacity(0.5), blurRadius: 25, spreadRadius: 5)
-                                    ],
-                                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 2)
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: _buildArena(isDesktop: true, isShort: isShort),
                                   ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Text(
-                                        'YOU WIN!',
-                                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${_userCurrency.symbol}${_winAmount.toStringAsFixed(2)}',
-                                        style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900),
-                                      ),
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 8),
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.3),
-                                          borderRadius: BorderRadius.circular(12)
+                                  _buildDesktopBetControls(rightAreaWidth),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    )
+                  : Column(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _buildArena(isDesktop: false, isShort: isShort),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Column(
+                            children: [
+                              _buildBetPanel(1),
+                              if (!isMobile || _showSecondBetPanel)
+                                _buildBetPanel(2),
+                              if (isMobile)
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    setState(() {
+                                      _showSecondBetPanel = !_showSecondBetPanel;
+                                    });
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 6),
+                                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E293B).withOpacity(0.7),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _showSecondBetPanel ? Icons.remove_circle_outline : Icons.add_circle_outline,
+                                          size: 13,
+                                          color: Colors.orangeAccent,
                                         ),
-                                        child: Text(
-                                          '${_winMultiplier.toStringAsFixed(2)}x',
-                                          style: const TextStyle(color: Colors.yellowAccent, fontSize: 16, fontWeight: FontWeight.bold),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          _showSecondBetPanel ? 'Hide Second Bet' : '+ Add Second Bet',
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
-                                      )
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                            ],
+                          ),
                         ),
+                        Expanded(
+                          flex: 2,
+                          child: _buildBottomBetsPanel(),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopBetControls(double rightWidth) {
+    final bool sideBySide = rightWidth >= 680;
+    if (sideBySide) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(8, 0, 14, 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildBetPanel(1)),
+            const SizedBox(width: 10),
+            Expanded(child: _buildBetPanel(2)),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(8, 0, 14, 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildBetPanel(1),
+            _buildBetPanel(2),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildArena({required bool isDesktop, required bool isShort}) {
+    return Container(
+      margin: isDesktop
+          ? const EdgeInsets.fromLTRB(8, 6, 14, 8)
+          : EdgeInsets.fromLTRB(14, isShort ? 6 : 14, 14, isShort ? 4 : 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 8))
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            if (_status != GameStatus.waiting)
+              PlaneGraph(
+                multiplier: _currentMultiplier,
+                isCrashed: _status == GameStatus.crashed,
+              ),
+            if (_status == GameStatus.waiting)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'NEXT ROUND IN',
+                      style: TextStyle(color: Colors.white54, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$_countdown',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 80,
+                        fontWeight: FontWeight.w900,
+                        shadows: [Shadow(color: Colors.white24, blurRadius: 20)],
                       ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Center(
+                child: Text(
+                  '${_currentMultiplier.toStringAsFixed(2)}x',
+                  style: TextStyle(
+                    color: _status == GameStatus.crashed ? Colors.redAccent : Colors.white,
+                    fontSize: 72,
+                    fontWeight: FontWeight.w900,
+                    shadows: [
+                      Shadow(
+                        color: (_status == GameStatus.crashed ? Colors.redAccent : Colors.lightBlueAccent).withOpacity(0.6),
+                        blurRadius: 25,
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            if (_status == GameStatus.crashed)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 180),
+                    ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [Colors.redAccent, Colors.orangeAccent],
+                      ).createShader(bounds),
+                      child: const Text(
+                        'FLEW AWAY!',
+                        style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: 2.0),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(
-              children: [
-                _buildBetPanel(1),
-                if (!isMobile || _showSecondBetPanel)
-                  _buildBetPanel(2),
-                if (isMobile)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      setState(() {
-                        _showSecondBetPanel = !_showSecondBetPanel;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B).withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _showSecondBetPanel ? Icons.remove_circle_outline : Icons.add_circle_outline,
-                            size: 13,
-                            color: Colors.orangeAccent,
+            if (_showWinMessage && _status != GameStatus.crashed)
+              Center(
+                key: ValueKey('win_popup_${_winMultiplier}_${_winAmount}'),
+                child: TweenAnimationBuilder(
+                  duration: const Duration(milliseconds: 600),
+                  tween: Tween<double>(begin: 0.0, end: 1.0),
+                  curve: Curves.elasticOut,
+                  builder: (context, double val, child) {
+                    return Transform.scale(
+                      scale: val,
+                      child: Opacity(
+                        opacity: val.clamp(0.0, 1.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: [
+                              BoxShadow(color: const Color(0xFF10B981).withOpacity(0.5), blurRadius: 25, spreadRadius: 5)
+                            ],
+                            border: Border.all(color: Colors.white.withOpacity(0.4), width: 2),
                           ),
-                          const SizedBox(width: 5),
-                          Text(
-                            _showSecondBetPanel ? 'Hide Second Bet' : '+ Add Second Bet',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'YOU WIN!',
+                                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_userCurrency.symbol}${_winAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900),
+                              ),
+                              Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${_winMultiplier.toStringAsFixed(2)}x',
+                                  style: const TextStyle(color: Colors.yellowAccent, fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                              )
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: _buildBottomBetsPanel(),
-          ),
-        ],
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   void _handleInstallApp() {
     if (kIsWeb) {
