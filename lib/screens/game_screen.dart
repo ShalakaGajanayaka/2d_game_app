@@ -201,30 +201,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _syncBalanceToServer({double? winDelta, double? mult}) async {
-    if (!_isLoggedIn || _authToken == null) return;
-    try {
-      final url = Uri.parse('${_getServerBaseUrl()}/auth/update-balance');
-      final res = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'token': _authToken,
-          'balance': _balance,
-          'winDelta': winDelta,
-          'mult': mult,
-        }),
-      );
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        final data = jsonDecode(res.body);
-        if (data['user'] != null && mounted) {
-          setState(() {
-            _currentUser = Map<String, dynamic>.from(data['user']);
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to sync balance: $e');
-    }
+    // Deprecated: Betting, payouts, and balances are 100% server-authoritative
   }
 
   Future<Map<String, dynamic>> _loginUser(String identifier, String password) async {
@@ -545,10 +522,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     });
   }
 
-  void _toggleBet(int betIndex) {
+  Future<void> _toggleBet(int betIndex) async {
     FocusManager.instance.primaryFocus?.unfocus();
     
-    if (!_isLoggedIn) {
+    if (!_isLoggedIn || _authToken == null) {
       _showAuthDialog();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -570,86 +547,179 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         currentBet = parsed;
       }
 
-      setState(() {
-        if (isPlaced) {
-          // Cancel bet
-          _balance += currentBet;
-          if (betIndex == 1) { _isBetPlaced1 = false; _betAmount1 = currentBet; }
-          else { _isBetPlaced2 = false; _betAmount2 = currentBet; }
-        } else {
-          // Place bet
-          if (currentBet < 50) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Minimum bet is 50!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
-            );
-            return;
-          }
-          if (currentBet > 20000) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Maximum bet is 20,000!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
-            );
-            return;
-          }
-          if (_balance >= currentBet) {
-            _balance -= currentBet;
-            if (betIndex == 1) { _isBetPlaced1 = true; _betAmount1 = currentBet; _hasCashedOut1 = false; }
-            else { _isBetPlaced2 = true; _betAmount2 = currentBet; _hasCashedOut2 = false; }
+      if (isPlaced) {
+        // Authoritative Cancel Bet
+        try {
+          final url = Uri.parse('${_getServerBaseUrl()}/auth/game-cancel-bet');
+          final res = await http.post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_authToken',
+            },
+            body: jsonEncode({'betIndex': betIndex}),
+          );
+          if (!mounted) return;
+          final data = jsonDecode(res.body);
+          if (res.statusCode == 200 || res.statusCode == 201) {
+            setState(() {
+              _balance = (data['balance'] as num).toDouble();
+              if (betIndex == 1) {
+                _isBetPlaced1 = false;
+                _betAmount1 = currentBet;
+              } else {
+                _isBetPlaced2 = false;
+                _betAmount2 = currentBet;
+              }
+            });
           } else {
+            final msg = data['message'] ?? 'Could not cancel bet';
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Insufficient balance!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+              SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
             );
           }
+        } catch (e) {
+          debugPrint('Error cancelling bet: $e');
         }
-      });
-      _syncBalanceToServer();
+      } else {
+        // Authoritative Place Bet
+        if (currentBet < 50) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Minimum bet is 50!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+          );
+          return;
+        }
+        if (currentBet > 20000) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Maximum bet is 20,000!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+          );
+          return;
+        }
+        if (_balance < currentBet) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Insufficient balance!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+          );
+          return;
+        }
+
+        try {
+          final url = Uri.parse('${_getServerBaseUrl()}/auth/game-bet');
+          final res = await http.post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_authToken',
+            },
+            body: jsonEncode({
+              'betIndex': betIndex,
+              'amount': currentBet,
+            }),
+          );
+          if (!mounted) return;
+          final data = jsonDecode(res.body);
+          if (res.statusCode == 200 || res.statusCode == 201) {
+            setState(() {
+              _balance = (data['balance'] as num).toDouble();
+              if (betIndex == 1) {
+                _isBetPlaced1 = true;
+                _betAmount1 = currentBet;
+                _hasCashedOut1 = false;
+              } else {
+                _isBetPlaced2 = true;
+                _betAmount2 = currentBet;
+                _hasCashedOut2 = false;
+              }
+            });
+          } else {
+            final msg = data['message'] ?? 'Could not place bet';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
+            );
+          }
+        } catch (e) {
+          debugPrint('Error placing bet: $e');
+        }
+      }
     }
   }
 
-  void _cashOut(int betIndex) {
+  Future<void> _cashOut(int betIndex) async {
     if (_status != GameStatus.playing) return;
     bool isPlaced = betIndex == 1 ? _isBetPlaced1 : _isBetPlaced2;
     bool hasCashedOut = betIndex == 1 ? _hasCashedOut1 : _hasCashedOut2;
-    double currentBet = betIndex == 1 ? _betAmount1 : _betAmount2;
     
-    if (!isPlaced || hasCashedOut) return;
-    
-    double winAmount = currentBet * _currentMultiplier;
-    final myId = betIndex == 1 ? 'my_bet_1' : 'my_bet_2';
-    
-    setState(() {
-      _balance += winAmount;
-      _recentlyCashedOut.add(myId);
-      if (betIndex == 1) {
-        _hasCashedOut1 = true;
-        _cashedOutMultiplier1 = _currentMultiplier;
+    if (!isPlaced || hasCashedOut || _authToken == null) return;
+
+    // Immediately mark locally to prevent duplicate clicks
+    if (betIndex == 1) {
+      _hasCashedOut1 = true;
+    } else {
+      _hasCashedOut2 = true;
+    }
+
+    try {
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/game-cashout');
+      final res = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_authToken',
+        },
+        body: jsonEncode({'betIndex': betIndex}),
+      );
+      if (!mounted) return;
+      final data = jsonDecode(res.body);
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final double winAmount = (data['winAmount'] as num).toDouble();
+        final double mult = (data['multiplier'] as num).toDouble();
+        final double newBal = (data['balance'] as num).toDouble();
+        final myId = betIndex == 1 ? 'my_bet_1' : 'my_bet_2';
+
+        setState(() {
+          _balance = newBal;
+          _recentlyCashedOut.add(myId);
+          if (betIndex == 1) {
+            _hasCashedOut1 = true;
+            _cashedOutMultiplier1 = mult;
+          } else {
+            _hasCashedOut2 = true;
+            _cashedOutMultiplier2 = mult;
+          }
+          _floatingWinAmount = winAmount;
+          _floatingWinMultiplier = mult;
+          _showFloatingWin = true;
+          _floatingWinKey++;
+        });
+
+        _floatingWinTimer?.cancel();
+        _floatingWinTimer = Timer(const Duration(milliseconds: 1600), () {
+          if (mounted) {
+            setState(() {
+              _showFloatingWin = false;
+            });
+          }
+        });
+
+        Timer(const Duration(milliseconds: 1800), () {
+          if (mounted) {
+            setState(() {
+              _recentlyCashedOut.remove(myId);
+            });
+          }
+        });
       } else {
-        _hasCashedOut2 = true;
-        _cashedOutMultiplier2 = _currentMultiplier;
+        // Cashout was rejected (e.g. crashed in flight)
+        final msg = data['message'] ?? 'Cash out failed';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
+          );
+        }
       }
-      _floatingWinAmount = winAmount;
-      _floatingWinMultiplier = _currentMultiplier;
-      _showFloatingWin = true;
-      _floatingWinKey++;
-    });
-
-    _floatingWinTimer?.cancel();
-    _floatingWinTimer = Timer(const Duration(milliseconds: 1600), () {
-      if (mounted) {
-        setState(() {
-          _showFloatingWin = false;
-        });
-      }
-    });
-
-    _syncBalanceToServer(winDelta: winAmount - currentBet, mult: _currentMultiplier);
-
-    Timer(const Duration(milliseconds: 1800), () {
-      if (mounted) {
-        setState(() {
-          _recentlyCashedOut.remove(myId);
-        });
-      }
-    });
+    } catch (e) {
+      debugPrint('Error during cashout: $e');
+    }
   }
 
   Future<void> _saveBetHistory(double betAmount, double? cashedOutMultiplier, double crashPoint, double winAmount) async {
