@@ -861,6 +861,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             flex: 2,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
+              onTapDown: (_) {
+                if (isPlaying && isPlaced && !hasCashedOut) {
+                  _cashOut(betIndex);
+                }
+              },
               onTap: () {
                 if (!_isLoggedIn) {
                   _showAuthDialog();

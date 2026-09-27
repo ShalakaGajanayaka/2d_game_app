@@ -9,6 +9,7 @@
   <meta name="description" content="SkyRush 2D Crash Game - Real-time High Multiplier Gaming">
 
   <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SkyRush">
@@ -31,7 +32,7 @@
       margin: 0;
       padding: 0;
       -webkit-font-smoothing: antialiased;
-      -webkit-tap-highlight-color: transparent;
+      -webkit-tap-highlight-color: transparent !important;
     }
 
     html, body {
@@ -44,7 +45,7 @@
       margin: 0;
       padding: 0;
       position: fixed;
-      touch-action: none !important;
+      touch-action: manipulation !important;
       -webkit-user-select: none;
       user-select: none;
       -webkit-touch-callout: none;
@@ -54,7 +55,7 @@
     flt-glass-pane, flutter-view, canvas {
       width: 100% !important;
       height: 100% !important;
-      touch-action: none !important;
+      touch-action: manipulation !important;
       user-select: none !important;
       -webkit-user-select: none !important;
       -webkit-touch-callout: none !important;
@@ -443,14 +444,6 @@
 
       // Fast safety timeout: dismiss after 2 seconds max so touch is NEVER blocked
       setTimeout(dismissPreloader, 2000);
-
-      // Prevent iOS WebKit from hijacking gestures or firing pointercancel on micro-jitter in standalone mode
-      document.addEventListener('touchmove', function(e) {
-        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-          return;
-        }
-        e.preventDefault();
-      }, { passive: false });
     })();
   </script>
 
