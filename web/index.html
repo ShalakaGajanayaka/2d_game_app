@@ -31,6 +31,7 @@
       margin: 0;
       padding: 0;
       -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
     }
 
     html, body {
@@ -39,21 +40,25 @@
       overflow: hidden;
       width: 100%;
       height: 100%;
+      height: 100dvh;
       margin: 0;
       padding: 0;
       position: fixed;
-      touch-action: manipulation;
+      touch-action: none !important;
       -webkit-user-select: none;
       user-select: none;
       -webkit-touch-callout: none;
+      overscroll-behavior: none !important;
     }
 
-    flt-glass-pane {
+    flt-glass-pane, flutter-view, canvas {
       width: 100% !important;
       height: 100% !important;
-      touch-action: manipulation !important;
+      touch-action: none !important;
       user-select: none !important;
       -webkit-user-select: none !important;
+      -webkit-touch-callout: none !important;
+      overscroll-behavior: none !important;
     }
 
     /* Fullscreen Preloader Container */
@@ -423,25 +428,29 @@
           preloader.style.pointerEvents = 'none';
           preloader.classList.add('fade-out');
           preloader.style.opacity = '0';
+          preloader.style.display = 'none';
           
-          setTimeout(function() {
-            if (preloader) {
-              preloader.style.display = 'none';
-              if (preloader.remove) {
-                preloader.remove();
-              } else if (preloader.parentNode) {
-                preloader.parentNode.removeChild(preloader);
-              }
-            }
-          }, 350);
+          if (preloader.remove) {
+            preloader.remove();
+          } else if (preloader.parentNode) {
+            preloader.parentNode.removeChild(preloader);
+          }
         }
       }
 
       // Listen for Flutter's first rendered frame
       window.addEventListener('flutter-first-frame', dismissPreloader);
 
-      // Fast safety timeout: dismiss after 3 seconds max so touch is NEVER blocked
-      setTimeout(dismissPreloader, 3000);
+      // Fast safety timeout: dismiss after 2 seconds max so touch is NEVER blocked
+      setTimeout(dismissPreloader, 2000);
+
+      // Prevent iOS WebKit from hijacking gestures or firing pointercancel on micro-jitter in standalone mode
+      document.addEventListener('touchmove', function(e) {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+          return;
+        }
+        e.preventDefault();
+      }, { passive: false });
     })();
   </script>
 

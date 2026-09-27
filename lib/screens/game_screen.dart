@@ -761,7 +761,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    InkWell(
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: isWaiting && !isPlaced
                           ? () {
                               setState(() {
@@ -772,7 +773,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               });
                             }
                           : null,
-                      borderRadius: BorderRadius.circular(20),
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(color: Color(0xFF334155), shape: BoxShape.circle),
@@ -799,7 +799,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                     const SizedBox(width: 4),
-                    InkWell(
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: isWaiting && !isPlaced
                           ? () {
                               setState(() {
@@ -808,7 +809,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               });
                             }
                           : null,
-                      borderRadius: BorderRadius.circular(20),
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(color: Color(0xFF334155), shape: BoxShape.circle),
@@ -829,7 +829,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         .map((amount) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: InkWell(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: isWaiting && !isPlaced
                               ? () {
                                   setState(() {
@@ -838,7 +839,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                   });
                                 }
                               : null,
-                          borderRadius: BorderRadius.circular(12),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
@@ -860,6 +860,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           Expanded(
             flex: 2,
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () {
                 if (!_isLoggedIn) {
                   _showAuthDialog();
@@ -2878,8 +2879,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ),
         ],
       ),
-      body: Stack(
-        children: [
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: Stack(
+          children: [
           Column(
             children: [
           if (_showHistoryBar) _buildHistoryBar(),
@@ -3029,6 +3033,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   _buildBetPanel(2),
                 if (isMobile)
                   GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () {
                       setState(() {
                         _showSecondBetPanel = !_showSecondBetPanel;
@@ -3075,6 +3080,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       if (!_isInitialSyncComplete)
         _buildCockpitSyncOverlay(),
     ],
+  ),
   ),
 );
 }
