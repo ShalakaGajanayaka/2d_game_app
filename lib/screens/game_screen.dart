@@ -21,6 +21,7 @@ import '../widgets/withdrawal_sheet.dart';
 import '../widgets/transaction_history_sheet.dart';
 import '../widgets/bet_history_sheet.dart';
 import '../models/live_bets_adapter.dart';
+import '../services/fullscreen_service.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -62,6 +63,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   final Set<String> _recentlyCashedOut = {};
   bool _isConnected = false;
   bool _isInitialSyncComplete = false;
+  bool _isFullscreen = false;
+  bool _showSecondBetPanel = false;
   
   late AnimationController _controller;
   int _countdown = 15;
@@ -737,9 +740,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       }
     }
 
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 6 : 8),
+      margin: EdgeInsets.only(bottom: isMobile ? 6 : 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(16),
@@ -975,8 +979,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     // Calculate total round bets pool
     final double totalPool = displayBets.fold(0.0, (sum, b) => sum + (((b['bet'] ?? 0) as num).toDouble()));
 
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      margin: EdgeInsets.fromLTRB(14, 0, 14, isMobile ? 8 : 16),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(20),
@@ -2577,6 +2582,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+    final bool isShort = MediaQuery.of(context).size.height < 750;
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A), // Premium Dark Slate
       appBar: AppBar(
@@ -2823,6 +2830,29 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                     ),
                   ),
+                  // Fullscreen Button
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10.0),
+                    child: Center(
+                      child: InkWell(
+                        onTap: _handleFullscreenToggle,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(5.5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Icon(
+                            _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                            color: Colors.white70,
+                            size: 19,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               );
             },
@@ -2837,18 +2867,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           Expanded(
             flex: 3,
             child: Container(
-              margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF334155), width: 1.5),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 8))
-                ]
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Stack(
+              margin: EdgeInsets.fromLTRB(14, isShort ? 6 : 14, 14, isShort ? 4 : 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF334155), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 8))
+                    ]
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Stack(
                   children: [
                     if (_status != GameStatus.waiting)
                       PlaneGraph(
@@ -2972,11 +3002,48 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Column(
               children: [
                 _buildBetPanel(1),
-                _buildBetPanel(2),
+                if (!isMobile || _showSecondBetPanel)
+                  _buildBetPanel(2),
+                if (isMobile)
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showSecondBetPanel = !_showSecondBetPanel;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B).withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _showSecondBetPanel ? Icons.remove_circle_outline : Icons.add_circle_outline,
+                            size: 13,
+                            color: Colors.orangeAccent,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            _showSecondBetPanel ? 'Hide Second Bet' : '+ Add Second Bet',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -3082,6 +3149,131 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _handleFullscreenToggle() {
+    if (kIsWeb && FullscreenService.isIosWeb()) {
+      _showIosPwaGuide();
+    } else {
+      FullscreenService.toggleFullscreen();
+      setState(() {
+        _isFullscreen = !_isFullscreen;
+      });
+    }
+  }
+
+  void _showIosPwaGuide() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0F172A),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: Color(0xFF38BDF8), width: 2)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orangeAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.fullscreen, color: Colors.orangeAccent, size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Play in 100% Fullscreen on iPhone',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _buildIosGuideStep(
+              number: '1',
+              icon: Icons.ios_share,
+              text: "Tap the 'Share' button at the bottom of Safari (⎋)",
+            ),
+            const SizedBox(height: 12),
+            _buildIosGuideStep(
+              number: '2',
+              icon: Icons.add_box_outlined,
+              text: "Scroll down and tap 'Add to Home Screen' (➕)",
+            ),
+            const SizedBox(height: 12),
+            _buildIosGuideStep(
+              number: '3',
+              icon: Icons.touch_app,
+              text: 'Launch SkyRush from your Home Screen with zero browser bars!',
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('GOT IT!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIosGuideStep({required String number, required IconData icon, required String text}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFF0284C7),
+              shape: BoxShape.circle,
+            ),
+            child: Text(number, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 12),
+          Icon(icon, color: Colors.white70, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          ),
+        ],
       ),
     );
   }

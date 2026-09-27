@@ -291,6 +291,31 @@
   </div>
 
   <script>
+    window.isIosDevice = function() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    };
+
+    window.isGameFullscreen = function() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    };
+
+    window.toggleGameFullscreen = function() {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        var el = document.documentElement;
+        if (el.requestFullscreen) {
+          el.requestFullscreen().catch(function() {});
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(function() {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+      }
+    };
+
     (function() {
       var bar = document.getElementById('preload-bar');
       var pct = document.getElementById('preload-percent');
