@@ -61,6 +61,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   List<Map<String, dynamic>> _liveBets = [];
   final Set<String> _recentlyCashedOut = {};
   bool _isConnected = false;
+  bool _isInitialSyncComplete = false;
   
   late AnimationController _controller;
   int _countdown = 15;
@@ -108,6 +109,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     _initSocket();
     _detectGeoCurrency();
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted && !_isInitialSyncComplete) {
+        setState(() => _isInitialSyncComplete = true);
+      }
+    });
   }
 
   String _getServerBaseUrl() {
@@ -361,7 +367,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     });
     
     socket.onConnect((_) {
-      if (mounted) setState(() => _isConnected = true);
+      if (mounted) {
+        setState(() {
+          _isConnected = true;
+          _isInitialSyncComplete = true;
+        });
+      }
     });
 
     socket.onDisconnect((_) {
@@ -372,6 +383,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     
     socket.on('gameState', (data) {
       if (!mounted) return;
+      if (!_isInitialSyncComplete) {
+        setState(() => _isInitialSyncComplete = true);
+      }
       
       setState(() {
         final serverStatus = data['status'];
@@ -2815,8 +2829,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
+          Column(
+            children: [
           if (_showHistoryBar) _buildHistoryBar(),
           Expanded(
             flex: 3,
@@ -2969,6 +2985,103 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             child: _buildBottomBetsPanel(),
           ),
         ],
+      ),
+      if (!_isInitialSyncComplete)
+        _buildCockpitSyncOverlay(),
+    ],
+  ),
+);
+}
+
+  Widget _buildCockpitSyncOverlay() {
+    return AnimatedOpacity(
+      opacity: _isInitialSyncComplete ? 0.0 : 1.0,
+      duration: const Duration(milliseconds: 350),
+      child: Container(
+        color: const Color(0xFF080C14),
+        width: double.infinity,
+        height: double.infinity,
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A).withOpacity(0.92),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.lightBlueAccent.withOpacity(0.3), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.lightBlueAccent.withOpacity(0.12),
+                  blurRadius: 30,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.6),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orangeAccent.withOpacity(0.2),
+                            blurRadius: 24,
+                            spreadRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(
+                      width: 68,
+                      height: 68,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
+                        backgroundColor: Color(0x3338BDF8),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.flight_takeoff,
+                      size: 34,
+                      color: Colors.lightBlueAccent,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'SYNCING FLIGHT TELEMETRY...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Connecting to High-Speed SkyRush Engine',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

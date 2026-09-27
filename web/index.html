@@ -1,46 +1,356 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="SkyRush Aviator 2D Crash Game - Real-time High Multiplier Gaming">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="game_app">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SkyRush Aviator">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>game_app</title>
+  <title>SkyRush Aviator 2D</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: #080c14;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Fullscreen Preloader Container */
+    #skyrush-preloader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at 50% 40%, #111e38 0%, #080c14 70%, #04060a 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.5s;
+    }
+
+    /* Ambient Glow Behind Jet */
+    .glow-aura {
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.18) 0%, rgba(249, 115, 22, 0.12) 40%, transparent 70%);
+      filter: blur(28px);
+      animation: pulse-aura 3s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+
+    @keyframes pulse-aura {
+      0% { transform: scale(0.9); opacity: 0.6; }
+      100% { transform: scale(1.15); opacity: 1; }
+    }
+
+    /* Jet Animation Container */
+    .jet-stage {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    /* Orbiting Radar Rings */
+    .radar-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px dashed rgba(56, 189, 248, 0.35);
+      animation: rotate-radar 12s linear infinite;
+    }
+    .radar-ring.outer {
+      width: 130px;
+      height: 130px;
+      border-color: rgba(56, 189, 248, 0.25);
+    }
+    .radar-ring.inner {
+      width: 95px;
+      height: 95px;
+      border-color: rgba(249, 115, 22, 0.3);
+      animation-direction: reverse;
+      animation-duration: 8s;
+    }
+
+    @keyframes rotate-radar {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Supersonic Jet SVG */
+    .jet-icon {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.65));
+      animation: jet-float 2.4s ease-in-out infinite alternate;
+      z-index: 2;
+    }
+
+    @keyframes jet-float {
+      0% { transform: translateY(4px) rotate(-35deg) scale(0.98); }
+      100% { transform: translateY(-6px) rotate(-38deg) scale(1.03); }
+    }
+
+    /* Jet Thruster Flame Exhaust */
+    .thruster-glow {
+      position: absolute;
+      bottom: 28px;
+      left: 20px;
+      width: 24px;
+      height: 10px;
+      background: radial-gradient(ellipse at right, #fbbf24 0%, #f97316 60%, transparent 100%);
+      filter: blur(2px);
+      border-radius: 50%;
+      transform: rotate(-35deg);
+      animation: thruster-flicker 0.15s infinite alternate;
+      z-index: 1;
+    }
+
+    @keyframes thruster-flicker {
+      0% { opacity: 0.7; transform: rotate(-35deg) scaleX(0.85); }
+      100% { opacity: 1; transform: rotate(-35deg) scaleX(1.3); }
+    }
+
+    /* Brand Header */
+    .brand-title {
+      font-size: 32px;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      user-select: none;
+    }
+
+    .brand-title .sky {
+      color: #38bdf8;
+      text-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+    }
+
+    .brand-title .rush {
+      color: #f97316;
+      text-shadow: 0 0 16px rgba(249, 115, 22, 0.5);
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      opacity: 0.85;
+    }
+
+    /* Sleek Cyber Progress Container */
+    .progress-wrapper {
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.6) inset;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 12%;
+      background: linear-gradient(90deg, #0284c7 0%, #38bdf8 50%, #f97316 100%);
+      border-radius: 999px;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    /* Light Glint across Bar */
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+      animation: shimmer 1.8s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* Status Text */
+    .status-text {
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      text-align: center;
+      transition: opacity 0.2s ease;
+      min-height: 16px;
+    }
+
+    .status-text span {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .percentage-text {
+      font-size: 12px;
+      font-weight: 800;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      color: #e2e8f0;
+      letter-spacing: 1px;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Tier 1: Instant SkyRush Cyber-Jet Preloader -->
+  <div id="skyrush-preloader">
+    <div class="glow-aura"></div>
+    
+    <div class="jet-stage">
+      <div class="radar-ring outer"></div>
+      <div class="radar-ring inner"></div>
+      
+      <!-- Jet Exhaust Flame -->
+      <div class="thruster-glow"></div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+      <!-- Aviator Supersonic Jet SVG -->
+      <svg class="jet-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21.5 2.5L14 7L3 5L2 6.5L8 11.5L5 15L2 14.5L1 16L5.5 18.5L8 23L9.5 22L9 19L12.5 16L17.5 22L19 21L17 10L21.5 2.5Z" 
+              fill="url(#jetGradient)" 
+              stroke="#e0f2fe" 
+              stroke-width="0.75" 
+              stroke-linejoin="round"/>
+        <defs>
+          <linearGradient id="jetGradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#f97316"/>
+            <stop offset="0.45" stop-color="#38bdf8"/>
+            <stop offset="1" stop-color="#e0f2fe"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- SkyRush Branding -->
+    <div class="brand-title">
+      <span class="sky">Sky</span><span class="rush">Rush</span>
+    </div>
+    <div class="brand-sub">Aviator 2D Crash Engine</div>
+
+    <!-- Progress Track & Dynamic Avionics Status -->
+    <div class="progress-wrapper">
+      <div class="progress-track">
+        <div class="progress-fill" id="preload-bar"></div>
+      </div>
+      <div class="percentage-text" id="preload-percent">15%</div>
+      <div class="status-text" id="preload-status">INITIALIZING AVIONICS...</div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var bar = document.getElementById('preload-bar');
+      var pct = document.getElementById('preload-percent');
+      var status = document.getElementById('preload-status');
+      var preloader = document.getElementById('skyrush-preloader');
+      var currentProgress = 15;
+
+      var messages = [
+        { at: 25, text: "CALIBRATING COCKPIT SYSTEMS..." },
+        { at: 50, text: "LOADING HIGH-FPS GRAPH ENGINE..." },
+        { at: 75, text: "SYNCING PROVABLY FAIR SEEDS..." },
+        { at: 92, text: "READY FOR TAKEOFF..." }
+      ];
+
+      var interval = setInterval(function() {
+        if (currentProgress < 88) {
+          currentProgress += Math.floor(Math.random() * 8) + 4;
+          if (currentProgress > 88) currentProgress = 88;
+          updateUI(currentProgress);
+        }
+      }, 250);
+
+      function updateUI(p) {
+        if (bar) bar.style.width = p + '%';
+        if (pct) pct.textContent = p + '%';
+        for (var i = messages.length - 1; i >= 0; i--) {
+          if (p >= messages[i].at) {
+            if (status) status.innerHTML = '<span>' + messages[i].text + '</span>';
+            break;
+          }
+        }
+      }
+
+      function dismissPreloader() {
+        clearInterval(interval);
+        updateUI(100);
+        if (status) status.innerHTML = '<span style="color:#22c55e;">TAKEOFF INITIATED!</span>';
+        
+        setTimeout(function() {
+          if (preloader) {
+            preloader.style.opacity = '0';
+            setTimeout(function() {
+              if (preloader.parentNode) preloader.parentNode.removeChild(preloader);
+            }, 500);
+          }
+        }, 300);
+      }
+
+      // Listen for Flutter's first rendered frame
+      window.addEventListener('flutter-first-frame', dismissPreloader);
+
+      // Safety timeout: dismiss after 7 seconds max
+      setTimeout(function() {
+        if (preloader && preloader.parentNode) {
+          dismissPreloader();
+        }
+      }, 7000);
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
