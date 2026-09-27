@@ -35,31 +35,34 @@ class _DepositSheetState extends State<DepositSheet> {
       'id': 'ipay',
       'name': 'iPay (Sri Lanka)',
       'badge': 'Instant QR / App',
-      'accountNumber': 'IPAY-784210',
-      'accountName': 'SkyRush Entertainment LK',
-      'instructions': 'Open your iPay app, choose Pay Merchant, enter Merchant ID IPAY-784210, include your Gamer Tag as remark, and paste the transaction reference number below.',
+      'accountNumber': '0729642306',
+      'accountName': 'SkyRush Official',
+      'instructions': 'Open your iPay app, choose Pay Merchant / Send Money, enter Mobile / Account 0729642306, include your Gamer Tag as remark, and paste the transaction reference number below.',
       'icon': Icons.qr_code_scanner,
       'color': const Color(0xFF10B981),
+      'enabled': true,
     },
     {
       'id': 'upay',
       'name': 'UPay (Sri Lanka)',
       'badge': 'Mobile Transfer',
-      'accountNumber': '077 123 4567',
-      'accountName': 'SkyRush Official UPay',
-      'instructions': 'Open your UPay app, send money to 0771234567 with your Gamer Tag in description, and copy the transaction reference number below.',
+      'accountNumber': '0729642306',
+      'accountName': 'SkyRush Official',
+      'instructions': 'Open your UPay app, send money to mobile number 0729642306 with your Gamer Tag in description, and copy the transaction reference number below.',
       'icon': Icons.phone_android,
       'color': const Color(0xFF8B5CF6),
+      'enabled': true,
     },
     {
       'id': 'bank_transfer',
-      'name': 'Commercial Bank of Ceylon',
-      'badge': 'Direct Bank / CDM',
-      'accountNumber': '1000 2489 3104',
-      'accountName': 'SkyRush Interactive LK (Pvt) Ltd',
-      'instructions': 'Transfer via online banking or CDM. Bank: Commercial Bank, Kollupitiya Branch. Enter your Gamer Tag in the remark and submit the slip reference below.',
+      'name': 'Commercial',
+      'badge': 'Disabled',
+      'accountNumber': 'Disabled',
+      'accountName': 'Commercial Bank',
+      'instructions': 'Commercial Bank deposits are temporarily disabled. Please use iPay or UPay.',
       'icon': Icons.account_balance,
-      'color': const Color(0xFF3B82F6),
+      'color': const Color(0xFF64748B),
+      'enabled': false,
     },
   ];
 
@@ -109,6 +112,14 @@ class _DepositSheetState extends State<DepositSheet> {
     if (refText.isEmpty || refText.length < 3) {
       setState(() {
         _errorMessage = 'Please enter the transaction reference / slip ID';
+      });
+      return;
+    }
+
+    final selectedCh = _channels.firstWhere((c) => c['id'] == _selectedChannel, orElse: () => _channels[0]);
+    if (selectedCh['enabled'] == false) {
+      setState(() {
+        _errorMessage = 'Commercial Bank deposits are temporarily disabled. Please select iPay or UPay.';
       });
       return;
     }
@@ -268,52 +279,79 @@ class _DepositSheetState extends State<DepositSheet> {
             Row(
               children: _channels.map((ch) {
                 final isSelected = ch['id'] == _selectedChannel;
-                final Color brandColor = ch['color'] as Color;
+                final isEnabled = ch['enabled'] != false;
+                final Color brandColor = isEnabled ? (ch['color'] as Color) : const Color(0xFF64748B);
                 return Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedChannel = ch['id'] as String;
-                        _errorMessage = null;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? brandColor.withOpacity(0.18) : const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? brandColor : Colors.white10,
-                          width: isSelected ? 2 : 1,
+                  child: MouseRegion(
+                    cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+                    child: GestureDetector(
+                      onTap: isEnabled
+                          ? () {
+                              setState(() {
+                                _selectedChannel = ch['id'] as String;
+                                _errorMessage = null;
+                              });
+                            }
+                          : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Commercial Bank deposits are temporarily disabled. Please use iPay or UPay.'),
+                                  backgroundColor: Color(0xFFEF4444),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                      child: Opacity(
+                        opacity: isEnabled ? 1.0 : 0.4,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? brandColor.withOpacity(0.18) : const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected ? brandColor : Colors.white10,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                ch['icon'] as IconData,
+                                color: isEnabled
+                                    ? (isSelected ? brandColor : Colors.white70)
+                                    : Colors.white24,
+                                size: 22,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                ch['name'].toString().split(' ')[0],
+                                style: TextStyle(
+                                  color: isEnabled
+                                      ? (isSelected ? Colors.white : Colors.white70)
+                                      : Colors.white38,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isEnabled ? (ch['badge'] as String) : 'Disabled',
+                                style: TextStyle(
+                                  color: isEnabled
+                                      ? (isSelected ? brandColor : Colors.white38)
+                                      : Colors.redAccent.withOpacity(0.7),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(ch['icon'] as IconData, color: isSelected ? brandColor : Colors.white70, size: 22),
-                          const SizedBox(height: 6),
-                          Text(
-                            ch['name'].toString().split(' ')[0],
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.white70,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            ch['badge'] as String,
-                            style: TextStyle(
-                              color: isSelected ? brandColor : Colors.white38,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                       ),
                     ),
                   ),
