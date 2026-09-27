@@ -137,24 +137,43 @@ class _CloudsPainter extends CustomPainter {
   }
 
   void _drawCloud(Canvas canvas, double x, double y, double scale, double opacity) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(opacity)
+    final double baseWidth = 95.0 * scale;
+    final double baseHeight = 28.0 * scale;
+
+    // Bounds with margin for soft vapor blur
+    final Rect cloudBounds = Rect.fromCenter(
+      center: Offset(x, y - 5 * scale),
+      width: baseWidth + 60.0 * scale,
+      height: baseHeight + 50.0 * scale,
+    );
+
+    // Single-pass composited layer with uniform opacity and subtle atmospheric edge blur
+    canvas.saveLayer(
+      cloudBounds,
+      Paint()
+        ..color = Colors.white.withOpacity(opacity)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2.5 * scale),
+    );
+
+    // 100% solid white paint inside the layer: overlapping circles merge with zero visible seams!
+    final solidPaint = Paint()
+      ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.fill;
 
-    final double baseWidth = 90.0 * scale;
-    final double baseHeight = 26.0 * scale;
-
-    // Main rounded cloud body
+    // Aerodynamic rounded cloud base
     final rrect = RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset(x, y), width: baseWidth, height: baseHeight),
       Radius.circular(baseHeight / 2),
     );
-    canvas.drawRRect(rrect, paint);
+    canvas.drawRRect(rrect, solidPaint);
 
-    // Overlapping cloud domes
-    canvas.drawCircle(Offset(x - 16 * scale, y - 8 * scale), 18 * scale, paint);
-    canvas.drawCircle(Offset(x + 14 * scale, y - 6 * scale), 15 * scale, paint);
-    canvas.drawCircle(Offset(x + 2 * scale, y - 12 * scale), 12 * scale, paint);
+    // Fluffy cloud domes merging seamlessly into a unified cloud
+    canvas.drawCircle(Offset(x - 20 * scale, y - 8 * scale), 18 * scale, solidPaint);
+    canvas.drawCircle(Offset(x + 2 * scale, y - 13 * scale), 17 * scale, solidPaint);
+    canvas.drawCircle(Offset(x + 22 * scale, y - 7 * scale), 15 * scale, solidPaint);
+    canvas.drawCircle(Offset(x + 36 * scale, y - 3 * scale), 11 * scale, solidPaint);
+
+    canvas.restore();
   }
 
   void _drawWindWisp(Canvas canvas, double x, double y, double scale, double opacity) {
