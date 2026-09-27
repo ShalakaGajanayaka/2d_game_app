@@ -63,7 +63,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   final Set<String> _recentlyCashedOut = {};
   bool _isConnected = false;
   bool _isInitialSyncComplete = false;
-  bool _isFullscreen = false;
   bool _showSecondBetPanel = false;
   
   late AnimationController _controller;
@@ -2833,13 +2832,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   // PWA Install App Button (Visible on mobile/web browsers when not already standalone)
                   if (kIsWeb && !FullscreenService.isPwaStandalone())
                     Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
+                      padding: const EdgeInsets.only(right: 12.0),
                       child: Center(
                         child: InkWell(
                           onTap: _handleInstallApp,
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
@@ -2857,13 +2856,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.install_mobile, color: Colors.white, size: 14),
-                                SizedBox(width: 3),
+                                SizedBox(width: 4),
                                 Text(
                                   'APP',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 10.5,
+                                    fontSize: 11,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
@@ -2873,29 +2872,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         ),
                       ),
                     ),
-                  // Fullscreen Button
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10.0),
-                    child: Center(
-                      child: InkWell(
-                        onTap: _handleFullscreenToggle,
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(5.5),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: Icon(
-                            _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                            color: Colors.white70,
-                            size: 19,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               );
             },
@@ -3316,16 +3292,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _handleFullscreenToggle() {
-    if (kIsWeb && FullscreenService.isIosWeb()) {
-      _showIosPwaGuide();
-    } else {
-      FullscreenService.toggleFullscreen();
-      setState(() {
-        _isFullscreen = !_isFullscreen;
-      });
-    }
-  }
 
   void _showIosPwaGuide() {
     showModalBottomSheet(
