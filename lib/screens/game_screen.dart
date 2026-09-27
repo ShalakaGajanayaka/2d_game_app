@@ -63,7 +63,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   List<Map<String, dynamic>> _liveBets = [];
   final Set<String> _recentlyCashedOut = {};
   bool _isConnected = false;
-  bool _showSecondBetPanel = false;
   
   late AnimationController _controller;
   int _countdown = 15;
@@ -2935,45 +2934,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           child: Column(
                             children: [
                               _buildBetPanel(1),
-                              if (!isMobile || _showSecondBetPanel)
-                                _buildBetPanel(2),
-                              if (isMobile)
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () {
-                                    setState(() {
-                                      _showSecondBetPanel = !_showSecondBetPanel;
-                                    });
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.only(bottom: 6),
-                                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF1E293B).withOpacity(0.7),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: Colors.white10),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _showSecondBetPanel ? Icons.remove_circle_outline : Icons.add_circle_outline,
-                                          size: 13,
-                                          color: Colors.orangeAccent,
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          _showSecondBetPanel ? 'Hide Second Bet' : '+ Add Second Bet',
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                              _buildBetPanel(2),
                             ],
                           ),
                         ),
