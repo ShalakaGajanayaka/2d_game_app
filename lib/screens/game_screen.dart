@@ -58,6 +58,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _hasCashedOut2 = false;
   
   double _currentMultiplier = 1.0;
+  final ValueNotifier<double> _multiplierNotifier = ValueNotifier<double>(1.0);
   final List<double> _history = [];
   final bool _showHistoryBar = false; // Set to true to show history bar again
   List<Map<String, dynamic>> _liveBets = [];
@@ -100,12 +101,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       duration: const Duration(seconds: 100), 
     )..addListener(() {
         if (_status == GameStatus.playing || _status == GameStatus.spectating) {
-          setState(() {
-            double elapsedSeconds = (DateTime.now().millisecondsSinceEpoch - _serverStartTime) / 1000;
-            if (elapsedSeconds > 0) {
-               _currentMultiplier = 1.0 + pow(elapsedSeconds, 2.5) / 10;
-            }
-          });
+          final double elapsedSeconds = (DateTime.now().millisecondsSinceEpoch - _serverStartTime) / 1000;
+          if (elapsedSeconds > 0) {
+            final double nextMultiplier = 1.0 + pow(elapsedSeconds, 2.5) / 10;
+            _currentMultiplier = nextMultiplier;
+            _multiplierNotifier.value = nextMultiplier;
+          }
         }
     });
 
@@ -393,13 +394,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         if (_status != newStatus) {
            if (serverStatus == 'playing' && _status == GameStatus.waiting) {
               _serverStartTime = data['startTime'].toDouble();
-              _controller.repeat(); 
+              _currentMultiplier = 1.0;
+              _multiplierNotifier.value = 1.0;
+              _controller.repeat();
            } 
            else if (newStatus == GameStatus.crashed) {
               _controller.stop();
               _floatingWinTimer?.cancel();
               _showFloatingWin = false;
               _currentMultiplier = data['currentMultiplier'].toDouble();
+              _multiplierNotifier.value = _currentMultiplier;
               _history.insert(0, _currentMultiplier);
               if (_history.length > 20) {
                  _history.removeLast();
@@ -422,6 +426,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
            else if (newStatus == GameStatus.waiting) {
               _controller.stop();
               _currentMultiplier = 1.0;
+              _multiplierNotifier.value = 1.0;
               _hasCashedOut1 = false;
               _hasCashedOut2 = false;
            }
@@ -750,6 +755,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     _zeroBalanceToggleTimer?.cancel();
     socket.dispose();
     _controller.dispose();
+    _multiplierNotifier.dispose();
     _betController1.dispose();
     _betController2.dispose();
     super.dispose();
@@ -1008,69 +1014,82 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   _cashOut(betIndex);
                 }
               },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: btnGradient,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: btnShadow,
-                  border: hasCashedOut ? Border.all(color: const Color(0xFF34D399), width: 1.5) : null,
-                ),
-                child: Center(
-                  child: hasCashedOut
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  'CASHED OUT',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.6,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.35),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    '${cashedOutMult.toStringAsFixed(2)}x',
-                                    style: const TextStyle(
-                                      color: Color(0xFFFDE047),
-                                      fontSize: 10,
+              child: RepaintBoundary(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: btnGradient,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: btnShadow,
+                    border: hasCashedOut ? Border.all(color: const Color(0xFF34D399), width: 1.5) : null,
+                  ),
+                  child: Center(
+                    child: hasCashedOut
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    'CASHED OUT',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10.5,
                                       fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.6,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '+${_userCurrency.symbol}${(betAmount * cashedOutMult).toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.5,
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.35),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${cashedOutMult.toStringAsFixed(2)}x',
+                                      style: const TextStyle(
+                                        color: Color(0xFFFDE047),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          btnText,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
-                        ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '+${_userCurrency.symbol}${(betAmount * cashedOutMult).toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          )
+                        : (isPlaying && isPlaced && !hasCashedOut)
+                            ? ValueListenableBuilder<double>(
+                                valueListenable: _multiplierNotifier,
+                                builder: (context, mult, child) {
+                                  return Text(
+                                    'CASH OUT\n${(betAmount * mult).toStringAsFixed(2)}',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                                  );
+                                },
+                              )
+                            : Text(
+                                btnText,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                              ),
+                  ),
                 ),
               ),
             ),
@@ -1133,7 +1152,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     final double totalPool = displayBets.fold(0.0, (sum, b) => sum + (((b['bet'] ?? 0) as num).toDouble()));
 
     final bool isMobile = MediaQuery.of(context).size.width < 600;
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       margin: isSidebar
           ? const EdgeInsets.fromLTRB(14, 6, 8, 14)
           : EdgeInsets.fromLTRB(14, 0, 14, isMobile ? 8 : 16),
@@ -1405,7 +1425,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildHistoryBar() {
@@ -3147,7 +3167,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildArena({required bool isDesktop, required bool isShort}) {
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       margin: isDesktop
           ? const EdgeInsets.fromLTRB(8, 6, 14, 8)
           : EdgeInsets.fromLTRB(14, isShort ? 6 : 14, 14, isShort ? 4 : 8),
@@ -3164,15 +3185,23 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         child: Stack(
           children: [
             Positioned.fill(
-              child: SkyCloudsBackground(
-                isPlaying: _status == GameStatus.playing || _status == GameStatus.spectating,
-                multiplier: _currentMultiplier,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _multiplierNotifier,
+                builder: (context, mult, _) => SkyCloudsBackground(
+                  isPlaying: _status == GameStatus.playing || _status == GameStatus.spectating,
+                  multiplier: mult,
+                ),
               ),
             ),
             if (_status != GameStatus.waiting)
-              PlaneGraph(
-                multiplier: _currentMultiplier,
-                isCrashed: _status == GameStatus.crashed,
+              ValueListenableBuilder<double>(
+                valueListenable: _multiplierNotifier,
+                builder: (context, mult, _) => RepaintBoundary(
+                  child: PlaneGraph(
+                    multiplier: mult,
+                    isCrashed: _status == GameStatus.crashed,
+                  ),
+                ),
               ),
             if (_status == GameStatus.waiting)
               Center(
@@ -3198,18 +3227,21 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               )
             else
               Center(
-                child: Text(
-                  '${_currentMultiplier.toStringAsFixed(2)}x',
-                  style: TextStyle(
-                    color: _status == GameStatus.crashed ? Colors.redAccent : Colors.white,
-                    fontSize: 72,
-                    fontWeight: FontWeight.w900,
-                    shadows: [
-                      Shadow(
-                        color: (_status == GameStatus.crashed ? Colors.redAccent : Colors.lightBlueAccent).withOpacity(0.6),
-                        blurRadius: 25,
-                      )
-                    ],
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _multiplierNotifier,
+                  builder: (context, mult, _) => Text(
+                    '${mult.toStringAsFixed(2)}x',
+                    style: TextStyle(
+                      color: _status == GameStatus.crashed ? Colors.redAccent : Colors.white,
+                      fontSize: 72,
+                      fontWeight: FontWeight.w900,
+                      shadows: [
+                        Shadow(
+                          color: (_status == GameStatus.crashed ? Colors.redAccent : Colors.lightBlueAccent).withOpacity(0.6),
+                          blurRadius: 25,
+                        )
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -3342,7 +3374,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ],
         ),
       ),
-    );
+    ));
   }
 
   void _handleInstallApp() {
