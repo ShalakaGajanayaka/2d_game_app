@@ -66,7 +66,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _isConnected = false;
   
   late AnimationController _controller;
-  int _countdown = 15;
+  int _countdown = 10;
+  final ValueNotifier<int> _countdownNotifier = ValueNotifier<int>(10);
+  double _serverClockOffset = 0.0;
+  double _targetStartTime = 0.0;
+  Timer? _localCountdownTimer;
+  Timer? _clockSyncTimer;
   
   bool _showFloatingWin = false;
   double _floatingWinAmount = 0.0;
@@ -79,6 +84,29 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   
   bool _showZeroBalanceDeposit = false;
   Timer? _zeroBalanceToggleTimer;
+
+  void _startLocalCountdownTimer(double targetStartEpoch) {
+    _targetStartTime = targetStartEpoch;
+    _localCountdownTimer?.cancel();
+    
+    // Smoothly tick every 100ms to calculate exact remaining whole seconds
+    _localCountdownTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted || _status != GameStatus.waiting) {
+        timer.cancel();
+        return;
+      }
+      final double syncedNow = DateTime.now().millisecondsSinceEpoch + _serverClockOffset;
+      final double remainingMs = _targetStartTime - syncedNow;
+      final int newCountdown = max(0, (remainingMs / 1000.0).ceil());
+      if (_countdownNotifier.value != newCountdown) {
+        _countdownNotifier.value = newCountdown;
+        _countdown = newCountdown;
+      }
+      if (remainingMs <= 0) {
+        timer.cancel();
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -101,12 +129,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       duration: const Duration(seconds: 100), 
     )..addListener(() {
         if (_status == GameStatus.playing || _status == GameStatus.spectating) {
-          final double elapsedSeconds = (DateTime.now().millisecondsSinceEpoch - _serverStartTime) / 1000;
-          if (elapsedSeconds > 0) {
-            final double nextMultiplier = 1.0 + pow(elapsedSeconds, 2.5) / 10;
-            _currentMultiplier = nextMultiplier;
-            _multiplierNotifier.value = nextMultiplier;
-          }
+          final double syncedServerEpoch = DateTime.now().millisecondsSinceEpoch + _serverClockOffset;
+          final double elapsedSeconds = max(0.0, (syncedServerEpoch - _serverStartTime) / 1000.0);
+          final double nextMultiplier = 1.0 + pow(elapsedSeconds, 2.5) / 10.0;
+          _currentMultiplier = nextMultiplier;
+          _multiplierNotifier.value = nextMultiplier;
         }
     });
 
@@ -343,10 +370,62 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     
     socket.onConnect((_) {
       if (mounted) setState(() => _isConnected = true);
+      // Immediately perform Clock Synchronization Handshake with Server
+      socket.emit('pingSync', {'clientSendTime': DateTime.now().millisecondsSinceEpoch});
     });
 
     socket.onDisconnect((_) {
       if (mounted) setState(() => _isConnected = false);
+    });
+
+    socket.on('pongSync', (data) {
+      final int t1 = DateTime.now().millisecondsSinceEpoch;
+      final int t0 = (data['clientSendTime'] as num?)?.toInt() ?? t1;
+      final int serverReceive = (data['serverReceiveTime'] as num?)?.toInt() ?? t1;
+      final int rtt = t1 - t0;
+      final double estimatedServerTime = serverReceive + (rtt / 2.0);
+      final double newOffset = estimatedServerTime - t1;
+
+      if (_serverClockOffset == 0.0) {
+        _serverClockOffset = newOffset;
+      } else {
+        _serverClockOffset = (_serverClockOffset * 0.7) + (newOffset * 0.3);
+      }
+    });
+
+    _clockSyncTimer?.cancel();
+    _clockSyncTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (_isConnected) {
+        socket.emit('pingSync', {'clientSendTime': DateTime.now().millisecondsSinceEpoch});
+      }
+    });
+
+    socket.on('flightSync', (data) {
+      if (!mounted) return;
+      final double serverMultiplier = (data['multiplier'] as num?)?.toDouble() ?? 1.0;
+      final double? serverStartTime = (data['startTime'] as num?)?.toDouble();
+      if (serverStartTime != null) {
+        _serverStartTime = serverStartTime;
+      }
+
+      // If client was still stuck in waiting due to a dropped/delayed start packet, immediately transition!
+      if (_status == GameStatus.waiting) {
+        _localCountdownTimer?.cancel();
+        setState(() {
+          _status = (_isBetPlaced1 || _isBetPlaced2) ? GameStatus.playing : GameStatus.spectating;
+          _controller.repeat();
+        });
+      }
+
+      // Soft convergence towards authoritative server multiplier
+      if (_status == GameStatus.playing || _status == GameStatus.spectating) {
+        final diff = serverMultiplier - _currentMultiplier;
+        if (diff.abs() > 0.12) {
+          final nudged = _currentMultiplier + (diff * 0.4);
+          _currentMultiplier = nudged;
+          _multiplierNotifier.value = nudged;
+        }
+      }
     });
     
     socket.connect();
@@ -354,9 +433,21 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     socket.on('gameState', (data) {
       if (!mounted) return;
       
+      final serverStatus = data['status'];
+      final serverCountdown = (data['countdown'] as num?)?.toInt() ?? 10;
+      final serverTargetStartTime = (data['targetStartTime'] as num?)?.toDouble();
+
+      if (serverStatus == 'waiting') {
+        if (serverTargetStartTime != null && serverTargetStartTime > 0) {
+          _startLocalCountdownTimer(serverTargetStartTime);
+        } else {
+          final double syncedNow = DateTime.now().millisecondsSinceEpoch + _serverClockOffset;
+          _startLocalCountdownTimer(syncedNow + (serverCountdown * 1000));
+        }
+      }
+
       setState(() {
-        final serverStatus = data['status'];
-        _countdown = data['countdown'];
+        _countdown = _countdownNotifier.value;
         
         if (data['bets'] != null) {
           final incomingBets = List<Map<String, dynamic>>.from(
@@ -393,16 +484,19 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
         if (_status != newStatus) {
            if (serverStatus == 'playing' && _status == GameStatus.waiting) {
-              _serverStartTime = data['startTime'].toDouble();
+              _localCountdownTimer?.cancel();
+              _serverStartTime = (data['startTime'] as num?)?.toDouble() ?? 
+                  (DateTime.now().millisecondsSinceEpoch + _serverClockOffset);
               _currentMultiplier = 1.0;
               _multiplierNotifier.value = 1.0;
               _controller.repeat();
            } 
            else if (newStatus == GameStatus.crashed) {
+              _localCountdownTimer?.cancel();
               _controller.stop();
               _floatingWinTimer?.cancel();
               _showFloatingWin = false;
-              _currentMultiplier = data['currentMultiplier'].toDouble();
+              _currentMultiplier = (data['crashPoint'] ?? data['currentMultiplier'])?.toDouble() ?? 1.0;
               _multiplierNotifier.value = _currentMultiplier;
               _history.insert(0, _currentMultiplier);
               if (_history.length > 20) {
@@ -753,6 +847,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   @override
   void dispose() {
     _zeroBalanceToggleTimer?.cancel();
+    _localCountdownTimer?.cancel();
+    _clockSyncTimer?.cancel();
+    _countdownNotifier.dispose();
     socket.dispose();
     _controller.dispose();
     _multiplierNotifier.dispose();
@@ -3213,13 +3310,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       style: TextStyle(color: Colors.white54, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.5),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      '$_countdown',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 80,
-                        fontWeight: FontWeight.w900,
-                        shadows: [Shadow(color: Colors.white24, blurRadius: 20)],
+                    ValueListenableBuilder<int>(
+                      valueListenable: _countdownNotifier,
+                      builder: (context, count, _) => Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 80,
+                          fontWeight: FontWeight.w900,
+                          shadows: [Shadow(color: Colors.white24, blurRadius: 20)],
+                        ),
                       ),
                     ),
                   ],
