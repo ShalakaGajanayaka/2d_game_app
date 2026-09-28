@@ -1593,18 +1593,37 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
+          final mediaQuery = MediaQuery.of(context);
+          final bool isKeyboardOpen = mediaQuery.viewInsets.bottom > 50;
+
           return Dialog(
             backgroundColor: const Color(0xFF1E293B),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
               side: const BorderSide(color: Color(0xFF334155), width: 1.5),
             ),
-            child: Container(
-              width: 380,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: isKeyboardOpen ? 16 : 24,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              behavior: HitTestBehavior.opaque,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 400,
+                  maxHeight: mediaQuery.size.height * 0.88,
+                ),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: isKeyboardOpen ? 18 : 24,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                   // Modal Top Header
                   if (isForgotPasswordMode) ...[
                     Row(
@@ -2382,7 +2401,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       onPressed: () => Navigator.of(ctx).pop(),
                       child: const Text('Continue as Guest', style: TextStyle(color: Colors.white54, fontSize: 13)),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
