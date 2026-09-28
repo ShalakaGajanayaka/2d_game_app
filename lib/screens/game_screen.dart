@@ -1200,43 +1200,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     bool isCrashed = _status == GameStatus.crashed;
     bool isPlaying = _status == GameStatus.playing || _status == GameStatus.spectating;
 
-    // Combine player's own bets with community live bets
-    final List<Map<String, dynamic>> displayBets = [];
-    if (_isBetPlaced1) {
-      displayBets.add({
-        'id': 'my_bet_1',
-        'isMe': true,
-        'name': 'YOU (Bet 1)',
-        'bet': _betAmount1,
-        'cashedOut': _hasCashedOut1,
-        'cashedOutMultiplier': _hasCashedOut1 ? _cashedOutMultiplier1 : null,
-        'winAmount': _hasCashedOut1 ? _betAmount1 * _cashedOutMultiplier1 : null,
-      });
-    }
-    if (_isBetPlaced2) {
-      displayBets.add({
-        'id': 'my_bet_2',
-        'isMe': true,
-        'name': 'YOU (Bet 2)',
-        'bet': _betAmount2,
-        'cashedOut': _hasCashedOut2,
-        'cashedOutMultiplier': _hasCashedOut2 ? _cashedOutMultiplier2 : null,
-        'winAmount': _hasCashedOut2 ? _betAmount2 * _cashedOutMultiplier2 : null,
-      });
-    }
-
     // Localize community bets according to currently active _userCurrency
+    final List<Map<String, dynamic>> displayBets = [];
     for (var rawBet in _liveBets) {
       displayBets.add(LiveBetsAdapter.localize(rawBet, _userCurrency.code));
     }
 
-    // Stable Rank & Sort:
-    // 1. Player's bets (isMe) always stay at the very top (#1).
-    // 2. Fixed order by Highest Bet Amount descending (locked throughout round, never shifting when someone cashes out).
+    // Stable Rank & Sort: Fixed order by Highest Bet Amount descending
     displayBets.sort((a, b) {
-      if (a['isMe'] == true && b['isMe'] != true) return -1;
-      if (b['isMe'] == true && a['isMe'] != true) return 1;
-
       final double aBet = ((a['bet'] ?? 0) as num).toDouble();
       final double bBet = ((b['bet'] ?? 0) as num).toDouble();
       if (bBet != aBet) {
