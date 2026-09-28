@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/currency.dart';
 
 class WithdrawalSheet extends StatefulWidget {
@@ -585,7 +584,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Escrow Security: Balance is reserved upon submission. Once verified by admin, payment will be transferred. If rejected, your credits are refunded immediately.',
+                        'Escrow Security: Balance is reserved upon submission. You can cancel pending withdrawals anytime in "My Transactions" to restore funds and continue playing.',
                         style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.3),
                       ),
                     ),

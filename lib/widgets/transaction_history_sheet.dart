@@ -26,6 +26,7 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
 
   List<dynamic> _deposits = [];
   List<dynamic> _withdrawals = [];
+  String? _cancellingId;
 
   @override
   void initState() {
@@ -72,6 +73,153 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
         setState(() {
           _errorMessage = 'Connection error: $e';
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmCancelWithdrawal(dynamic w) async {
+    final id = w['id']?.toString() ?? '';
+    final amount = double.tryParse(w['amount']?.toString() ?? '') ?? 0.0;
+    final currency = w['currency'] ?? widget.currency.code;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.replay_circle_filled, color: Color(0xFF38BDF8), size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Cancel Withdrawal?',
+              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to cancel this pending withdrawal? Funds will be immediately restored to your playable wallet balance.',
+              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Refund to Wallet:', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  Text(
+                    '+$currency ${amount.toStringAsFixed(2)}',
+                    style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep Pending', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            icon: const Icon(Icons.check, size: 16),
+            label: const Text('Yes, Cancel & Play'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _executeCancelWithdrawal(id, amount, currency);
+    }
+  }
+
+  Future<void> _executeCancelWithdrawal(String id, double amount, String currency) async {
+    setState(() {
+      _cancellingId = id;
+    });
+
+    try {
+      final url = Uri.parse('${widget.serverBaseUrl}/admin/withdrawal-cancel');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'token': widget.authToken,
+          'withdrawalId': id,
+        }),
+      );
+
+      final data = jsonDecode(res.body);
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      data['message'] ?? 'Withdrawal cancelled! $currency ${amount.toStringAsFixed(2)} returned to wallet.',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        await _fetchHistory();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              content: Text(data['message'] ?? 'Failed to cancel withdrawal'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            content: Text('Error: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _cancellingId = null;
         });
       }
     }
@@ -414,9 +562,13 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
       statusColor = Colors.redAccent;
       statusText = 'REFUNDED';
       statusIcon = Icons.replay;
+    } else if (status == 'CANCELLED') {
+      statusColor = const Color(0xFFA855F7);
+      statusText = 'CANCELLED & REFUNDED';
+      statusIcon = Icons.undo;
     } else {
       statusColor = const Color(0xFFF59E0B);
-      statusText = 'PROCESSING';
+      statusText = 'PENDING APPROVAL';
       statusIcon = Icons.hourglass_top;
     }
 
@@ -518,9 +670,42 @@ class _TransactionHistorySheetState extends State<TransactionHistorySheet> with 
               child: Text(
                 'Note: $note',
                 style: TextStyle(
-                  color: status == 'REJECTED' ? Colors.redAccent.withOpacity(0.8) : Colors.white60,
+                  color: status == 'REJECTED'
+                      ? Colors.redAccent.withOpacity(0.8)
+                      : (status == 'CANCELLED' ? const Color(0xFFA855F7).withOpacity(0.8) : Colors.white60),
                   fontSize: 10,
                   fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
+          if (status == 'PENDING') ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _cancellingId == w['id']
+                    ? null
+                    : () => _confirmCancelWithdrawal(w),
+                icon: _cancellingId == w['id']
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.replay_circle_filled, size: 16, color: Colors.white),
+                label: Text(
+                  _cancellingId == w['id']
+                      ? 'Cancelling...'
+                      : '🔄 Cancel & Play Again ($currency ${amount.toStringAsFixed(0)})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),
