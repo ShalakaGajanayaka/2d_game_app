@@ -765,6 +765,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     bool isWaiting = _status == GameStatus.waiting;
     bool isPlaying = _status == GameStatus.playing || _status == GameStatus.spectating;
     
+    // Check if this specific bet is currently active & flying in the air (cannot modify in-flight bet)
+    final bool isBetActiveInFlight = isPlaced && !hasCashedOut && !isWaiting;
+
+    // During waiting countdown, if bet is already committed, user must cancel bet before altering price
+    final bool isWaitingBetCommitted = isWaiting && isPlaced;
+
+    // Player can freely adjust price for current or next round whenever their money is not in flight or committed
+    final bool canChangeAmount = !isBetActiveInFlight && !isWaitingBetCommitted;
+    
     Gradient btnGradient = const LinearGradient(colors: [Color(0xFF334155), Color(0xFF1E293B)]);
     String btnText = 'WAITING';
     List<BoxShadow> btnShadow = [];
@@ -832,7 +841,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   children: [
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: isWaiting && !isPlaced
+                      onTap: canChangeAmount
                           ? () {
                               setState(() {
                                 if (betAmount > 50.0) {
@@ -850,8 +859,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           : null,
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(color: Color(0xFF334155), shape: BoxShape.circle),
-                        child: const Icon(Icons.remove, color: Colors.white, size: 20),
+                        decoration: BoxDecoration(
+                          color: canChangeAmount ? const Color(0xFF334155) : const Color(0xFF1E293B),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.remove, color: canChangeAmount ? Colors.white : Colors.white38, size: 20),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -861,9 +873,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         controller: controller,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: canChangeAmount ? Colors.white : Colors.white54,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                         decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
-                        enabled: isWaiting && !isPlaced,
+                        enabled: canChangeAmount,
                         onChanged: (val) {
                           final parsed = double.tryParse(val);
                           if (parsed != null && parsed > 0) {
@@ -876,7 +892,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                     const SizedBox(width: 4),
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: isWaiting && !isPlaced
+                      onTap: canChangeAmount
                           ? () {
                               setState(() {
                                 final double step = betAmount >= 1000 ? 100.0 : (betAmount >= 200 ? 50.0 : 10.0);
@@ -892,8 +908,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           : null,
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(color: Color(0xFF334155), shape: BoxShape.circle),
-                        child: const Icon(Icons.add, color: Colors.white, size: 20),
+                        decoration: BoxDecoration(
+                          color: canChangeAmount ? const Color(0xFF334155) : const Color(0xFF1E293B),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.add, color: canChangeAmount ? Colors.white : Colors.white38, size: 20),
                       ),
                     ),
                   ],
@@ -914,7 +933,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         padding: const EdgeInsets.symmetric(horizontal: 3.5),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: isWaiting && !isPlaced
+                          onTap: canChangeAmount
                               ? () {
                                   setState(() {
                                     if (betIndex == 1) {
@@ -932,20 +951,22 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color(0xFF0284C7).withOpacity(0.35)
+                                  ? const Color(0xFF0284C7).withOpacity(canChangeAmount ? 0.35 : 0.15)
                                   : const Color(0xFF0F172A),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isSelected
-                                    ? const Color(0xFF38BDF8)
-                                    : const Color(0xFF334155),
+                                    ? const Color(0xFF38BDF8).withOpacity(canChangeAmount ? 1.0 : 0.4)
+                                    : const Color(0xFF334155).withOpacity(canChangeAmount ? 1.0 : 0.4),
                                 width: isSelected ? 1.4 : 1.0,
                               ),
                             ),
                             child: Text(
                               '$amount',
                               style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.white70,
+                                color: isSelected
+                                    ? (canChangeAmount ? Colors.white : Colors.white60)
+                                    : (canChangeAmount ? Colors.white70 : Colors.white38),
                                 fontSize: 12,
                                 fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold,
                               ),
