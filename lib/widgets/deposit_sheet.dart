@@ -86,8 +86,20 @@ class _DepositSheetState extends State<DepositSheet> {
     */
   ];
 
+  Currency get _activeCurrency {
+    if (_selectedChannel == 'binance_usdt') {
+      return const Currency(
+        code: 'USD',
+        name: 'US Dollar',
+        symbol: '\$',
+        flag: '🇺🇸',
+      );
+    }
+    return widget.currency;
+  }
+
   List<double> get _quickAmounts {
-    if (widget.currency.code == 'USD') {
+    if (_activeCurrency.code == 'USD') {
       return [5.0, 10.0, 25.0, 50.0, 100.0];
     }
     return [500.0, 1000.0, 2500.0, 5000.0, 10000.0];
@@ -129,6 +141,13 @@ class _DepositSheetState extends State<DepositSheet> {
       return;
     }
 
+    if (_activeCurrency.code == 'USD' && amount < 1.0) {
+      setState(() {
+        _errorMessage = 'Minimum deposit amount for Binance is \$1.00 USD';
+      });
+      return;
+    }
+
     if (refText.isEmpty || refText.length < 3) {
       setState(() {
         _errorMessage = 'Please enter the transaction reference / slip ID';
@@ -157,7 +176,7 @@ class _DepositSheetState extends State<DepositSheet> {
         body: jsonEncode({
           'token': widget.authToken,
           'amount': amount,
-          'currency': widget.currency.code,
+          'currency': _activeCurrency.code,
           'paymentMethod': _selectedChannel,
           'referenceNumber': refText,
         }),
@@ -187,7 +206,7 @@ class _DepositSheetState extends State<DepositSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Amount: ${widget.currency.symbol}${amount.toStringAsFixed(2)}',
+                  'Amount: ${_activeCurrency.symbol}${amount.toStringAsFixed(2)} (${_activeCurrency.code})',
                   style: const TextStyle(color: Color(0xFF10B981), fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
@@ -310,6 +329,7 @@ class _DepositSheetState extends State<DepositSheet> {
                               setState(() {
                                 _selectedChannel = ch['id'] as String;
                                 _errorMessage = null;
+                                _amountController.text = _quickAmounts[1].toStringAsFixed(0);
                               });
                             }
                           : () {
@@ -616,9 +636,26 @@ class _DepositSheetState extends State<DepositSheet> {
             const SizedBox(height: 18),
 
             // Quick Amount Selector
-            const Text(
-              'SELECT AMOUNT',
-              style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'SELECT AMOUNT',
+                  style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    _activeCurrency.code == 'USD' ? 'USDT / USD' : _activeCurrency.code,
+                    style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -642,7 +679,7 @@ class _DepositSheetState extends State<DepositSheet> {
                       ),
                     ),
                     child: Text(
-                      '${widget.currency.symbol}${amt.toStringAsFixed(0)}',
+                      '${_activeCurrency.symbol}${amt.toStringAsFixed(0)}',
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.white70,
                         fontWeight: FontWeight.bold,
@@ -663,7 +700,7 @@ class _DepositSheetState extends State<DepositSheet> {
               decoration: InputDecoration(
                 labelText: 'Deposit Amount',
                 labelStyle: const TextStyle(color: Colors.white54),
-                prefixText: '${widget.currency.symbol} ',
+                prefixText: '${_activeCurrency.symbol} ',
                 prefixStyle: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold),
                 filled: true,
                 fillColor: const Color(0xFF1E293B),
