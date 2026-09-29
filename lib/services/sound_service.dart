@@ -43,4 +43,8 @@ class SoundService {
   static void playCashout() {
     impl.playCashoutSoundImpl();
   }
+
+  static void playCrash() {
+    impl.playCrashSoundImpl();
+  }
 }

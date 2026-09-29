@@ -3,5 +3,6 @@ void startFlightSoundImpl() {}
 void updateFlightSoundImpl(double mult) {}
 void stopFlightSoundImpl(bool crashed) {}
 void playCashoutSoundImpl() {}
+void playCrashSoundImpl() {}
 void setSoundMutedImpl(bool muted) {}
 bool isSoundMutedImpl() => false;

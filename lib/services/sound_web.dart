@@ -36,6 +36,15 @@ void playCashoutSoundImpl() {
   } catch (_) {}
 }
 
+void playCrashSoundImpl() {
+  try {
+    final skyrushAudio = js.context['SkyRushAudio'];
+    if (skyrushAudio != null) {
+      skyrushAudio.callMethod('playCrash');
+    }
+  } catch (_) {}
+}
+
 void setSoundMutedImpl(bool muted) {
   try {
     final skyrushAudio = js.context['SkyRushAudio'];

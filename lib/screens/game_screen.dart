@@ -700,6 +700,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
            } 
            else if (newStatus == GameStatus.crashed) {
               SoundService.stopFlight(crashed: true);
+              SoundService.playCrash();
               _localCountdownTimer?.cancel();
               _controller.stop();
               _floatingWinTimer?.cancel();

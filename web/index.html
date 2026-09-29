@@ -500,6 +500,74 @@
             note1.stop(now + 0.3);
             note2.stop(now + 0.3);
           } catch (e) {}
+        },
+
+        playCrash: function() {
+          if (isMuted) return;
+          var ctx = getContext();
+          if (!ctx) return;
+
+          try {
+            var now = ctx.currentTime;
+
+            // 1. Sub-Bass Punch (Transients): 160Hz -> 38Hz in 0.28s
+            var bassOsc = ctx.createOscillator();
+            var bassGain = ctx.createGain();
+
+            bassOsc.type = 'triangle';
+            bassOsc.frequency.setValueAtTime(160, now);
+            bassOsc.frequency.exponentialRampToValueAtTime(38, now + 0.28);
+
+            bassGain.gain.setValueAtTime(0.0001, now);
+            bassGain.gain.exponentialRampToValueAtTime(0.14, now + 0.02);
+            bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+
+            bassOsc.connect(bassGain);
+            bassGain.connect(ctx.destination);
+
+            bassOsc.start(now);
+            bassOsc.stop(now + 0.35);
+
+            // 2. Air blast / supersonic dissipation whoosh
+            var bufferSize = Math.floor(ctx.sampleRate * 0.3);
+            var noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            var output = noiseBuffer.getChannelData(0);
+            for (var i = 0; i < bufferSize; i++) {
+              output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+            }
+
+            var whiteNoise = ctx.createBufferSource();
+            whiteNoise.buffer = noiseBuffer;
+
+            var filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(550, now);
+            filter.frequency.exponentialRampToValueAtTime(80, now + 0.28);
+
+            var noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.0001, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.09, now + 0.025);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+
+            whiteNoise.connect(filter);
+            filter.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+
+            whiteNoise.start(now);
+            whiteNoise.stop(now + 0.35);
+
+            setTimeout(function() {
+              try {
+                bassOsc.disconnect();
+                bassGain.disconnect();
+                whiteNoise.disconnect();
+                filter.disconnect();
+                noiseGain.disconnect();
+              } catch (e) {}
+            }, 400);
+          } catch (e) {
+            console.warn('[SkyRushAudio] Error playing crash audio:', e);
+          }
         }
       };
     })();
