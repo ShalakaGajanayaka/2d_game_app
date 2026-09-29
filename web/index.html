@@ -328,7 +328,7 @@
 
         if (!musicGain) {
           musicGain = ctx.createGain();
-          musicGain.gain.setValueAtTime(isMuted ? 0 : 0.12, ctx.currentTime);
+          musicGain.gain.setValueAtTime(isMuted ? 0 : 0.095, ctx.currentTime);
           musicGain.connect(ctx.destination);
         }
 
@@ -494,10 +494,10 @@
           if (isMuted && flightGain && audioCtx) {
             flightGain.gain.setValueAtTime(0, audioCtx.currentTime);
           } else if (!isMuted && flightGain && audioCtx && isFlightActive) {
-            flightGain.gain.setTargetAtTime(0.075, audioCtx.currentTime, 0.1);
+            flightGain.gain.setTargetAtTime(0.038, audioCtx.currentTime, 0.1);
           }
           if (musicGain && audioCtx) {
-            musicGain.gain.setValueAtTime(isMuted ? 0 : 0.12, audioCtx.currentTime);
+            musicGain.gain.setValueAtTime(isMuted ? 0 : 0.095, audioCtx.currentTime);
           }
           if (!isMuted && !isMusicPlaying) {
             startMusic();
@@ -540,19 +540,19 @@
             lfo.type = 'sine';
             lfo.frequency.setValueAtTime(2.2, now); // 2.2 Hz pulse
             lfoGain = ctx.createGain();
-            lfoGain.gain.setValueAtTime(12, now);
+            lfoGain.gain.setValueAtTime(10, now);
             lfo.connect(lfoGain);
             lfoGain.connect(osc1.frequency);
 
             // Low-pass Filter to keep sound pleasant, smooth, and warm (no harsh frequencies)
             filter = ctx.createBiquadFilter();
             filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(320, now);
-            filter.Q.setValueAtTime(2.0, now);
+            filter.frequency.setValueAtTime(260, now);
+            filter.Q.setValueAtTime(1.4, now);
 
-            // Flight Volume Gain
+            // Flight Volume Gain (gentle ambient layer that doesn't drown out music)
             flightGain = ctx.createGain();
-            var targetVol = isMuted ? 0 : 0.075; // Pleasant, gentle ambient level
+            var targetVol = isMuted ? 0 : 0.038;
             flightGain.gain.setValueAtTime(0.0001, now);
             flightGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, targetVol), now + 0.35);
 
@@ -575,23 +575,22 @@
             var m = Math.max(1.0, parseFloat(mult) || 1.0);
             var now = audioCtx.currentTime;
 
-            // Pitch ascends smoothly with log2 of multiplier:
+            // Pitch ascends smoothly with log2 of multiplier without masking music:
             var logMult = Math.log2(m);
-            var targetFreq = Math.min(520, 120 + (logMult * 65));
-            var targetFilter = Math.min(1100, 320 + (logMult * 140));
-            var targetLfo = Math.min(8.0, 2.2 + (logMult * 0.9));
+            var targetFreq = Math.min(460, 120 + (logMult * 55));
+            var targetFilter = Math.min(580, 260 + (logMult * 80));
+            var targetLfo = Math.min(6.5, 2.2 + (logMult * 0.7));
 
             osc1.frequency.setTargetAtTime(targetFreq, now, 0.08);
-            osc2.frequency.setTargetAtTime(targetFreq * 2, now, 0.08);
+            osc2.frequency.setTargetAtTime(targetFreq * 1.5, now, 0.08);
             filter.frequency.setTargetAtTime(targetFilter, now, 0.08);
             if (lfo) {
               lfo.frequency.setTargetAtTime(targetLfo, now, 0.08);
             }
 
-            // Audio ducking: As multiplier climbs, slightly duck background music so jet tension shines
+            // Balanced audio mix: keep motivational background music steady and audible throughout flight
             if (musicGain && !isMuted) {
-              var duckTarget = (m > 2.5) ? 0.045 : 0.12;
-              musicGain.gain.setTargetAtTime(duckTarget, now, 0.25);
+              musicGain.gain.setTargetAtTime(0.095, now, 0.2);
             }
           } catch (e) {}
         },
@@ -629,9 +628,9 @@
               }
             }
 
-            // Restore ambient music volume smoothly after flight ends
+            // Keep ambient music volume smoothly at balanced target
             if (musicGain && !isMuted) {
-              musicGain.gain.setTargetAtTime(0.12, audioCtx.currentTime, 0.35);
+              musicGain.gain.setTargetAtTime(0.095, audioCtx.currentTime, 0.35);
             }
 
             setTimeout(function() {
@@ -691,26 +690,26 @@
           try {
             var now = ctx.currentTime;
 
-            // 1. Sub-Bass Punch (Transients): 160Hz -> 38Hz in 0.28s
+            // 1. Sub-Bass Punch (Transients): 160Hz -> 36Hz in 0.30s
             var bassOsc = ctx.createOscillator();
             var bassGain = ctx.createGain();
 
             bassOsc.type = 'triangle';
             bassOsc.frequency.setValueAtTime(160, now);
-            bassOsc.frequency.exponentialRampToValueAtTime(38, now + 0.28);
+            bassOsc.frequency.exponentialRampToValueAtTime(36, now + 0.30);
 
             bassGain.gain.setValueAtTime(0.0001, now);
-            bassGain.gain.exponentialRampToValueAtTime(0.14, now + 0.02);
-            bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+            bassGain.gain.exponentialRampToValueAtTime(0.24, now + 0.02);
+            bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
 
             bassOsc.connect(bassGain);
             bassGain.connect(ctx.destination);
 
             bassOsc.start(now);
-            bassOsc.stop(now + 0.35);
+            bassOsc.stop(now + 0.36);
 
-            // 2. Air blast / supersonic dissipation whoosh
-            var bufferSize = Math.floor(ctx.sampleRate * 0.3);
+            // 2. Air blast / supersonic dissipation whoosh (punchier yet pleasant)
+            var bufferSize = Math.floor(ctx.sampleRate * 0.35);
             var noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
             var output = noiseBuffer.getChannelData(0);
             for (var i = 0; i < bufferSize; i++) {
@@ -722,20 +721,20 @@
 
             var filter = ctx.createBiquadFilter();
             filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(550, now);
-            filter.frequency.exponentialRampToValueAtTime(80, now + 0.28);
+            filter.frequency.setValueAtTime(650, now);
+            filter.frequency.exponentialRampToValueAtTime(75, now + 0.30);
 
             var noiseGain = ctx.createGain();
             noiseGain.gain.setValueAtTime(0.0001, now);
-            noiseGain.gain.exponentialRampToValueAtTime(0.09, now + 0.025);
-            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+            noiseGain.gain.exponentialRampToValueAtTime(0.16, now + 0.025);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
 
             whiteNoise.connect(filter);
             filter.connect(noiseGain);
             noiseGain.connect(ctx.destination);
 
             whiteNoise.start(now);
-            whiteNoise.stop(now + 0.35);
+            whiteNoise.stop(now + 0.36);
 
             setTimeout(function() {
               try {
