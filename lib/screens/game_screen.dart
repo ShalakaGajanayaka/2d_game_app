@@ -49,6 +49,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _isBetPlaced1 = false;
   double _cashedOutMultiplier1 = 0.0;
   bool _hasCashedOut1 = false;
+  bool _isSubmittingBet1 = false;
+  bool _isPressedBet1 = false;
 
   // Bet 2
   double _betAmount2 = 50.0;
@@ -56,6 +58,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _isBetPlaced2 = false;
   double _cashedOutMultiplier2 = 0.0;
   bool _hasCashedOut2 = false;
+  bool _isSubmittingBet2 = false;
+  bool _isPressedBet2 = false;
   
   double _currentMultiplier = 1.0;
   final ValueNotifier<double> _multiplierNotifier = ValueNotifier<double>(1.0);
@@ -517,6 +521,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _isBetPlaced2 = false;
               _hasCashedOut1 = false;
               _hasCashedOut2 = false;
+              _isSubmittingBet1 = false;
+              _isSubmittingBet2 = false;
+              _isPressedBet1 = false;
+              _isPressedBet2 = false;
            }
            else if (newStatus == GameStatus.waiting) {
               _controller.stop();
@@ -524,6 +532,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _multiplierNotifier.value = 1.0;
               _hasCashedOut1 = false;
               _hasCashedOut2 = false;
+              _isSubmittingBet1 = false;
+              _isSubmittingBet2 = false;
+              _isPressedBet1 = false;
+              _isPressedBet2 = false;
            }
            _status = newStatus;
         }
@@ -638,6 +650,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     }
 
     if (_status == GameStatus.waiting) {
+      // Guard against rapid multi-click debounce while request in flight
+      if ((betIndex == 1 && _isSubmittingBet1) || (betIndex == 2 && _isSubmittingBet2)) {
+        return;
+      }
+
       double currentBet = betIndex == 1 ? _betAmount1 : _betAmount2;
       bool isPlaced = betIndex == 1 ? _isBetPlaced1 : _isBetPlaced2;
       TextEditingController controller = betIndex == 1 ? _betController1 : _betController2;
@@ -648,7 +665,21 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       }
 
       if (isPlaced) {
-        // Authoritative Cancel Bet
+        // --- 0ms OPTIMISTIC CANCEL BET ---
+        final double previousBalance = _balance;
+        setState(() {
+          if (betIndex == 1) {
+            _isSubmittingBet1 = true;
+            _isBetPlaced1 = false;
+            _betAmount1 = currentBet;
+          } else {
+            _isSubmittingBet2 = true;
+            _isBetPlaced2 = false;
+            _betAmount2 = currentBet;
+          }
+          _balance += currentBet; // Instant optimistic refund
+        });
+
         try {
           final url = Uri.parse('${_getServerBaseUrl()}/auth/game-cancel-bet');
           final res = await http.post(
@@ -664,25 +695,43 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           if (res.statusCode == 200 || res.statusCode == 201) {
             setState(() {
               _balance = (data['balance'] as num).toDouble();
-              if (betIndex == 1) {
-                _isBetPlaced1 = false;
-                _betAmount1 = currentBet;
-              } else {
-                _isBetPlaced2 = false;
-                _betAmount2 = currentBet;
-              }
+              if (betIndex == 1) _isSubmittingBet1 = false;
+              else _isSubmittingBet2 = false;
             });
           } else {
+            // Revert on error
             final msg = data['message'] ?? 'Could not cancel bet';
+            setState(() {
+              _balance = previousBalance;
+              if (betIndex == 1) {
+                _isBetPlaced1 = true;
+                _isSubmittingBet1 = false;
+              } else {
+                _isBetPlaced2 = true;
+                _isSubmittingBet2 = false;
+              }
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
             );
           }
         } catch (e) {
           debugPrint('Error cancelling bet: $e');
+          if (mounted) {
+            setState(() {
+              _balance = previousBalance;
+              if (betIndex == 1) {
+                _isBetPlaced1 = true;
+                _isSubmittingBet1 = false;
+              } else {
+                _isBetPlaced2 = true;
+                _isSubmittingBet2 = false;
+              }
+            });
+          }
         }
       } else {
-        // Authoritative Place Bet
+        // --- 0ms OPTIMISTIC PLACE BET ---
         if (currentBet < 50) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Minimum bet is 50!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
@@ -702,6 +751,22 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           return;
         }
 
+        final double previousBalance = _balance;
+        setState(() {
+          if (betIndex == 1) {
+            _isSubmittingBet1 = true;
+            _isBetPlaced1 = true;
+            _betAmount1 = currentBet;
+            _hasCashedOut1 = false;
+          } else {
+            _isSubmittingBet2 = true;
+            _isBetPlaced2 = true;
+            _betAmount2 = currentBet;
+            _hasCashedOut2 = false;
+          }
+          _balance = (_balance - currentBet).clamp(0.0, double.infinity); // Instant optimistic deduction
+        });
+
         try {
           final url = Uri.parse('${_getServerBaseUrl()}/auth/game-bet');
           final res = await http.post(
@@ -720,24 +785,40 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           if (res.statusCode == 200 || res.statusCode == 201) {
             setState(() {
               _balance = (data['balance'] as num).toDouble();
-              if (betIndex == 1) {
-                _isBetPlaced1 = true;
-                _betAmount1 = currentBet;
-                _hasCashedOut1 = false;
-              } else {
-                _isBetPlaced2 = true;
-                _betAmount2 = currentBet;
-                _hasCashedOut2 = false;
-              }
+              if (betIndex == 1) _isSubmittingBet1 = false;
+              else _isSubmittingBet2 = false;
             });
           } else {
+            // Revert on error
             final msg = data['message'] ?? 'Could not place bet';
+            setState(() {
+              _balance = previousBalance;
+              if (betIndex == 1) {
+                _isBetPlaced1 = false;
+                _isSubmittingBet1 = false;
+              } else {
+                _isBetPlaced2 = false;
+                _isSubmittingBet2 = false;
+              }
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
             );
           }
         } catch (e) {
           debugPrint('Error placing bet: $e');
+          if (mounted) {
+            setState(() {
+              _balance = previousBalance;
+              if (betIndex == 1) {
+                _isBetPlaced1 = false;
+                _isSubmittingBet1 = false;
+              } else {
+                _isBetPlaced2 = false;
+                _isSubmittingBet2 = false;
+              }
+            });
+          }
         }
       }
     }
@@ -1090,8 +1171,28 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (_) {
+                setState(() {
+                  if (betIndex == 1) _isPressedBet1 = true;
+                  else _isPressedBet2 = true;
+                });
                 if (isPlaying && isPlaced && !hasCashedOut) {
                   _cashOut(betIndex);
+                }
+              },
+              onTapUp: (_) {
+                if (mounted) {
+                  setState(() {
+                    if (betIndex == 1) _isPressedBet1 = false;
+                    else _isPressedBet2 = false;
+                  });
+                }
+              },
+              onTapCancel: () {
+                if (mounted) {
+                  setState(() {
+                    if (betIndex == 1) _isPressedBet1 = false;
+                    else _isPressedBet2 = false;
+                  });
                 }
               },
               onTap: () {
@@ -1112,81 +1213,86 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   _cashOut(betIndex);
                 }
               },
-              child: RepaintBoundary(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: btnGradient,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: btnShadow,
-                    border: hasCashedOut ? Border.all(color: const Color(0xFF34D399), width: 1.5) : null,
-                  ),
-                  child: Center(
-                    child: hasCashedOut
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    'CASHED OUT',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.6,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.35),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '${cashedOutMult.toStringAsFixed(2)}x',
-                                      style: const TextStyle(
-                                        color: Color(0xFFFDE047),
-                                        fontSize: 10,
+              child: AnimatedScale(
+                scale: (betIndex == 1 ? _isPressedBet1 : _isPressedBet2) ? 0.94 : 1.0,
+                duration: const Duration(milliseconds: 100),
+                curve: Curves.easeOutCubic,
+                child: RepaintBoundary(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 56,
+                    decoration: BoxDecoration(
+                      gradient: btnGradient,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: btnShadow,
+                      border: hasCashedOut ? Border.all(color: const Color(0xFF34D399), width: 1.5) : null,
+                    ),
+                    child: Center(
+                      child: hasCashedOut
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      'CASHED OUT',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.6,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '+${_userCurrency.symbol}${(betAmount * cashedOutMult).toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.35),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '${cashedOutMult.toStringAsFixed(2)}x',
+                                        style: const TextStyle(
+                                          color: Color(0xFFFDE047),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          )
-                        : (isPlaying && isPlaced && !hasCashedOut)
-                            ? ValueListenableBuilder<double>(
-                                valueListenable: _multiplierNotifier,
-                                builder: (context, mult, child) {
-                                  return Text(
-                                    'CASH OUT\n${(betAmount * mult).toStringAsFixed(2)}',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
-                                  );
-                                },
-                              )
-                            : Text(
-                                btnText,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
-                              ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '+${_userCurrency.symbol}${(betAmount * cashedOutMult).toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : (isPlaying && isPlaced && !hasCashedOut)
+                              ? ValueListenableBuilder<double>(
+                                  valueListenable: _multiplierNotifier,
+                                  builder: (context, mult, child) {
+                                    return Text(
+                                      'CASH OUT\n${(betAmount * mult).toStringAsFixed(2)}',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                                    );
+                                  },
+                                )
+                              : Text(
+                                  btnText,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                                ),
+                    ),
                   ),
                 ),
               ),
