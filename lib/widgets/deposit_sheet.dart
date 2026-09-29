@@ -36,11 +36,10 @@ class _DepositSheetState extends State<DepositSheet> {
       'name': 'Binance / USDT',
       'shortName': 'Binance',
       'badge': 'Crypto / Instant',
-      'accountNumber': 'Pay ID: 84920193',
-      'binancePayId': '84920193',
-      'usdtTrc20Address': 'TYDzsYUEpvnYmQk4zGP9sWWcTEd36mAtW6',
-      'accountName': 'SkyRush Official Binance',
-      'instructions': '1. Open Binance App or your Crypto Wallet.\n2. Transfer USDT via Binance Pay (Pay ID: 84920193) or TRC-20.\n3. Paste the Binance Order ID / TxID or proof link in the reference box below.',
+      'accountNumber': 'Pay ID: 548934240',
+      'binancePayId': '548934240',
+      'accountName': 'SkyRush-Official',
+      'instructions': '1. Open Binance App -> Pay or Scan QR code.\n2. Confirm recipient nickname is SkyRush-Official (Pay ID: 548934240).\n3. Paste the Binance Order ID / TxID or proof link in the reference box below.',
       'icon': Icons.currency_bitcoin,
       'color': const Color(0xFFF59E0B),
       'enabled': true,
@@ -425,9 +424,77 @@ class _DepositSheetState extends State<DepositSheet> {
                   ),
                   const SizedBox(height: 8),
                   if (currentChannel['id'] == 'binance_usdt') ...[
+                    // Binance QR Code Card
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.35)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF59E0B).withOpacity(0.12),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.asset(
+                                'assets/images/binance_qr.jpeg',
+                                width: 140,
+                                height: 140,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    width: 140,
+                                    height: 140,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E293B),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.white12),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: const [
+                                        Icon(Icons.qr_code_scanner, size: 44, color: Color(0xFFFBBF24)),
+                                        SizedBox(height: 6),
+                                        Text(
+                                          'Binance QR Code\nassets/images/binance_qr.jpeg',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.qr_code, size: 13, color: Color(0xFFFBBF24)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Scan with Binance App',
+                                  style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     // Binance Pay ID
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF59E0B).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
@@ -439,11 +506,17 @@ class _DepositSheetState extends State<DepositSheet> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Binance Pay ID (Instant)', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.bold)),
+                              Row(
+                                children: const [
+                                  Text('Binance Pay ID', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.bold)),
+                                  SizedBox(width: 6),
+                                  Text('(Instant 0% Fee)', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                                ],
+                              ),
                               const SizedBox(height: 2),
                               Text(
                                 currentChannel['binancePayId'] as String,
-                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1),
                               ),
                             ],
                           ),
@@ -460,7 +533,7 @@ class _DepositSheetState extends State<DepositSheet> {
                                 children: const [
                                   Icon(Icons.copy, size: 12, color: Colors.black),
                                   SizedBox(width: 4),
-                                  Text('Copy Pay ID', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  Text('Copy ID', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             ),
@@ -469,7 +542,7 @@ class _DepositSheetState extends State<DepositSheet> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // USDT TRC-20 Address
+                    // Nickname row
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -478,24 +551,27 @@ class _DepositSheetState extends State<DepositSheet> {
                         border: Border.all(color: Colors.white12),
                       ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('USDT Address (TRC-20)', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  currentChannel['usdtTrc20Address'] as String,
-                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace', fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Recipient Nickname', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Text(
+                                    currentChannel['accountName'] as String,
+                                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.verified, size: 14, color: Color(0xFF38BDF8)),
+                                ],
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
                           InkWell(
-                            onTap: () => _copyToClipboard(currentChannel['usdtTrc20Address'] as String, 'USDT TRC-20 Address'),
+                            onTap: () => _copyToClipboard(currentChannel['accountName'] as String, 'Nickname'),
                             borderRadius: BorderRadius.circular(6),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
