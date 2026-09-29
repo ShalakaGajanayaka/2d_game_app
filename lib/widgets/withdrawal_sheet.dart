@@ -746,25 +746,28 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               const SizedBox(height: 6),
 
               // Save Details Checkbox
-              Theme(
-                data: ThemeData(unselectedWidgetColor: Colors.white54),
-                child: CheckboxListTile(
-                  value: _saveDetailsCheckbox,
-                  activeColor: const Color(0xFFF59E0B),
-                  checkColor: Colors.black,
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: const Text(
-                    'Save Binance details for future withdrawals',
-                    style: TextStyle(color: Colors.white, fontSize: 13),
+              Material(
+                color: Colors.transparent,
+                child: Theme(
+                  data: ThemeData(unselectedWidgetColor: Colors.white54),
+                  child: CheckboxListTile(
+                    value: _saveDetailsCheckbox,
+                    activeColor: const Color(0xFFF59E0B),
+                    checkColor: Colors.black,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text(
+                      'Save Binance details for future withdrawals',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _saveDetailsCheckbox = val;
+                        });
+                      }
+                    },
                   ),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _saveDetailsCheckbox = val;
-                      });
-                    }
-                  },
                 ),
               ),
 
