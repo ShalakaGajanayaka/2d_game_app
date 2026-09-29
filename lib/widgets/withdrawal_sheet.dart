@@ -26,21 +26,21 @@ class WithdrawalSheet extends StatefulWidget {
 
 class _WithdrawalSheetState extends State<WithdrawalSheet> {
   final TextEditingController _amountController = TextEditingController();
+  
+  // Binance / USDT Controllers (ACTIVE)
+  final TextEditingController _binancePayIdController = TextEditingController();
+  final TextEditingController _binanceNicknameController = TextEditingController();
+
+  /* 
+  // TEMPORARILY COMMENTED OUT CHANNELS: BANK, IPAY, UPAY
   final TextEditingController _bankNameController = TextEditingController();
   final TextEditingController _branchNameController = TextEditingController();
   final TextEditingController _bankAccNumController = TextEditingController();
   final TextEditingController _bankAccHolderController = TextEditingController();
-  
   final TextEditingController _ipayMobileController = TextEditingController();
   final TextEditingController _ipayHolderController = TextEditingController();
-  
   final TextEditingController _upayMobileController = TextEditingController();
   final TextEditingController _upayHolderController = TextEditingController();
-
-  String _selectedMethod = 'BANK'; // 'BANK', 'IPAY', 'UPAY'
-  bool _isSubmitting = false;
-  String? _errorMessage;
-  bool _saveDetailsCheckbox = true;
 
   final List<String> _sriLankaBanks = [
     'Commercial Bank of Ceylon',
@@ -54,15 +54,69 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
     'National Development Bank (NDB)',
     'Pan Asia Bank',
   ];
+  */
+
+  // Active Withdrawal Method: BINANCE only for now
+  final String _selectedMethod = 'binance_usdt'; // 'binance_usdt' (temporarily commented: 'BANK', 'IPAY', 'UPAY')
+  bool _isSubmitting = false;
+  String? _errorMessage;
+  bool _saveDetailsCheckbox = true;
+
+  // Platform Exchange Rates (Base: USD / USDT = 1.0)
+  static const Map<String, double> _platformExchangeRates = {
+    'USD': 1.0,
+    'USDT': 1.0,
+    'LKR': 300.0,
+    'INR': 85.0,
+    'EUR': 0.92,
+    'GBP': 0.79,
+    'AED': 3.67,
+  };
+
+  double get _exchangeRate {
+    final code = widget.currency.code.toUpperCase();
+    return _platformExchangeRates[code] ?? 1.0;
+  }
+
+  // Minimum 7 USDT converted into the user's active currency
+  double get _minAmountInUserCurrency {
+    return 7.0 * _exchangeRate;
+  }
+
+  // Real-time USDT Equivalent based on user input
+  double get _currentUsdtEquivalent {
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    if (_exchangeRate <= 0) return 0.0;
+    return amount / _exchangeRate;
+  }
 
   @override
   void initState() {
     super.initState();
-    _bankNameController.text = _sriLankaBanks[0];
+    _amountController.addListener(_onAmountChanged);
+
+    // Initial default amount: minimum 7 USDT or available balance
+    final minAmt = _minAmountInUserCurrency;
     if (widget.currentBalance > 0) {
-      _amountController.text = (widget.currentBalance >= 2500 ? 2500 : widget.currentBalance).toStringAsFixed(0);
+      final initial = widget.currentBalance >= minAmt ? minAmt : widget.currentBalance;
+      _amountController.text = initial >= 50
+          ? initial.toStringAsFixed(0)
+          : initial.toStringAsFixed(2);
+    } else {
+      _amountController.text = minAmt >= 50
+          ? minAmt.toStringAsFixed(0)
+          : minAmt.toStringAsFixed(2);
     }
+
     _loadSavedDetails();
+  }
+
+  void _onAmountChanged() {
+    if (mounted) {
+      setState(() {
+        if (_errorMessage != null) _errorMessage = null;
+      });
+    }
   }
 
   Future<void> _loadSavedDetails() async {
@@ -80,9 +134,22 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
             details = jsonDecode(details);
           } catch (_) {}
         }
-        
+
         if (mounted && details != null && details is Map) {
           setState(() {
+            // Load Binance details
+            if (details['BINANCE'] != null) {
+              final binance = details['BINANCE'];
+              _binancePayIdController.text = binance['binancePayId'] ?? binance['accountNumber'] ?? '';
+              _binanceNicknameController.text = binance['nickname'] ?? binance['accountHolder'] ?? '';
+            } else if (details['binance_usdt'] != null) {
+              final binance = details['binance_usdt'];
+              _binancePayIdController.text = binance['binancePayId'] ?? binance['accountNumber'] ?? '';
+              _binanceNicknameController.text = binance['nickname'] ?? binance['accountHolder'] ?? '';
+            }
+
+            /*
+            // TEMPORARILY COMMENTED OUT DETAIL LOADING:
             if (details['BANK'] != null) {
               final bank = details['BANK'];
               _bankNameController.text = bank['bankName'] ?? '';
@@ -100,6 +167,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               _upayMobileController.text = upay['mobileNumber'] ?? '';
               _upayHolderController.text = upay['accountHolder'] ?? '';
             }
+            */
           });
         }
       }
@@ -110,7 +178,12 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
+    _binancePayIdController.dispose();
+    _binanceNicknameController.dispose();
+
+    /*
     _bankNameController.dispose();
     _branchNameController.dispose();
     _bankAccNumController.dispose();
@@ -119,14 +192,25 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
     _ipayHolderController.dispose();
     _upayMobileController.dispose();
     _upayHolderController.dispose();
+    */
+
     super.dispose();
   }
 
+  // Quick Chips representing 7 USDT, 15 USDT, 25 USDT, 50 USDT, 100 USDT
   List<double> get _quickAmounts {
-    if (widget.currency.code == 'USD') {
-      return [25.0, 50.0, 100.0, 250.0];
-    }
-    return [2500.0, 5000.0, 10000.0, 25000.0];
+    final rate = _exchangeRate;
+    final usdtPresets = [7.0, 15.0, 25.0, 50.0, 100.0];
+    return usdtPresets.map((usdt) {
+      final val = usdt * rate;
+      if (rate >= 50) {
+        return (val / 10).round() * 10.0;
+      } else if (rate >= 1) {
+        return val.roundToDouble();
+      } else {
+        return double.parse(val.toStringAsFixed(2));
+      }
+    }).toList();
   }
 
   Future<void> _submitWithdrawal() async {
@@ -139,63 +223,38 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
     }
 
     if (amount > widget.currentBalance) {
-      setState(() => _errorMessage = 'Insufficient funds! Your balance is ${widget.currency.symbol}${widget.currentBalance.toStringAsFixed(2)}');
+      setState(() => _errorMessage =
+          'Insufficient funds! Your balance is ${widget.currency.symbol}${widget.currentBalance.toStringAsFixed(2)}');
       return;
     }
 
-    if (widget.currency.code == 'LKR' && amount < 2500) {
-      setState(() => _errorMessage = 'Minimum withdrawal amount is LKR 2500.00');
+    // Minimum 7 USDT validation
+    final usdtAmount = amount / _exchangeRate;
+    if (usdtAmount < 6.99) {
+      setState(() => _errorMessage =
+          'Minimum withdrawal is 7.00 USDT (approx ${widget.currency.symbol}${_minAmountInUserCurrency.toStringAsFixed(_minAmountInUserCurrency >= 50 ? 0 : 2)})');
       return;
     }
 
-    Map<String, dynamic> payoutDetails = {};
+    // Validate Binance input
+    final payId = _binancePayIdController.text.trim();
+    final nickname = _binanceNicknameController.text.trim();
 
-    if (_selectedMethod == 'BANK') {
-      final bank = _bankNameController.text.trim();
-      final accNum = _bankAccNumController.text.trim();
-      final holder = _bankAccHolderController.text.trim();
-      final branch = _branchNameController.text.trim();
-
-      if (bank.isEmpty || accNum.isEmpty || holder.isEmpty) {
-        setState(() => _errorMessage = 'Please fill in Bank Name, Account Number and Account Holder');
-        return;
-      }
-
-      payoutDetails = {
-        'bankName': bank,
-        'accountNumber': accNum,
-        'accountHolder': holder,
-        'branchName': branch,
-      };
-    } else if (_selectedMethod == 'IPAY') {
-      final mobile = _ipayMobileController.text.trim();
-      final holder = _ipayHolderController.text.trim();
-
-      if (mobile.isEmpty || mobile.length < 9) {
-        setState(() => _errorMessage = 'Please enter a valid IPAY mobile number');
-        return;
-      }
-
-      payoutDetails = {
-        'mobileNumber': mobile,
-        'accountNumber': mobile,
-        'accountHolder': holder.isNotEmpty ? holder : 'Wallet User',
-      };
-    } else {
-      final mobile = _upayMobileController.text.trim();
-      final holder = _upayHolderController.text.trim();
-
-      if (mobile.isEmpty || mobile.length < 9) {
-        setState(() => _errorMessage = 'Please enter a valid UPAY mobile number');
-        return;
-      }
-
-      payoutDetails = {
-        'mobileNumber': mobile,
-        'accountNumber': mobile,
-        'accountHolder': holder.isNotEmpty ? holder : 'Wallet User',
-      };
+    if (payId.isEmpty) {
+      setState(() => _errorMessage =
+          'Please enter your Binance Pay ID or USDT (BEP20/TRC20) Wallet Address');
+      return;
     }
+
+    final Map<String, dynamic> payoutDetails = {
+      'binancePayId': payId,
+      'accountNumber': payId,
+      'nickname': nickname.isNotEmpty ? nickname : 'Binance User',
+      'accountHolder': nickname.isNotEmpty ? nickname : 'Binance User',
+      'usdtAmount': usdtAmount.toStringAsFixed(2),
+      'exchangeRate': _exchangeRate,
+      'network': 'BINANCE_PAY / USDT',
+    };
 
     setState(() {
       _isSubmitting = true;
@@ -225,7 +284,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
         widget.onWithdrawalSubmitted?.call();
 
-        // Show confirmation dialog
+        // Show confirmation dialog with live USDT equivalent
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -235,32 +294,62 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               children: const [
                 Icon(Icons.check_circle, color: Color(0xFF10B981), size: 28),
                 SizedBox(width: 10),
-                Text('Request Submitted!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(
+                  'Request Submitted!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
               ],
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Withdrawn Amount: ${widget.currency.symbol}${amount.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Color(0xFFF43F5E), fontSize: 16, fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Amount Debited:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    Text(
+                      '${widget.currency.symbol}${amount.toStringAsFixed(2)}',
+                      style: const TextStyle(color: Color(0xFFF43F5E), fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Payout Method: ${_selectedMethod.toUpperCase()}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Expected Payout:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    Text(
+                      '≈ ${usdtAmount.toStringAsFixed(2)} USDT',
+                      style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Destination:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    Text(
+                      payId.length > 16 ? '${payId.substring(0, 14)}...' : payId,
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F172A),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white10),
+                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
                   ),
                   child: const Text(
-                    '🔒 Funds are currently held in escrow. Admin will process and transfer the funds to your account shortly. You will be notified live on screen.',
+                    '🔒 Funds are placed in secure escrow. SkyRush Admin will verify and dispatch your USDT transfer within 15–30 minutes.',
                     style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
                   ),
                 ),
@@ -269,7 +358,10 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('OK, Got It', style: TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'OK, Got It',
+                  style: TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -281,49 +373,56 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Network error: Please check your connection';
+        _errorMessage = 'Network error: $e';
       });
     } finally {
       if (mounted) {
-        setState(() => _isSubmitting = false);
+        setState(() {
+          _isSubmitting = false;
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomInset = mediaQuery.viewInsets.bottom;
+    final usdtEquiv = _currentUsdtEquivalent;
+    final isBelowMin = usdtEquiv < 6.99 && _amountController.text.isNotEmpty;
+
     return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: 20 + bottomInset,
+      ),
       decoration: const BoxDecoration(
-        color: Color(0xFF0B132B),
+        color: Color(0xFF0F172A),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle bar
+              // Grab handle
               Center(
                 child: Container(
                   width: 40,
                   height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
                     color: Colors.white24,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
 
-              // Title and balance info
+              // Title and Balance
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -361,29 +460,97 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               ),
               const SizedBox(height: 16),
 
-              // Method Tabs (Bank, iPay, UPay)
+              // Payout Method Selector: Binance Active (Others Temporarily Commented Out)
               Row(
                 children: [
-                  _buildMethodTab('BANK', 'Bank Transfer', Icons.account_balance, const Color(0xFF3B82F6)),
-                  const SizedBox(width: 8),
-                  _buildMethodTab('IPAY', 'iPay LK', Icons.qr_code_scanner, const Color(0xFF10B981)),
-                  const SizedBox(width: 8),
-                  _buildMethodTab('UPAY', 'UPay LK', Icons.phone_android, const Color(0xFF8B5CF6)),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.currency_bitcoin, color: Color(0xFFFBBF24), size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Binance / USDT (Crypto)',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Fast Instant Payout • Min: 7 USDT',
+                                  style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.check_circle, color: Color(0xFFFBBF24), size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  /*
+                  // TEMPORARILY COMMENTED OUT METHODS (Bank Transfer, iPay, UPay):
+                  // _buildMethodTab('BANK', 'Bank Transfer', Icons.account_balance, const Color(0xFF3B82F6)),
+                  // const SizedBox(width: 8),
+                  // _buildMethodTab('IPAY', 'iPay LK', Icons.qr_code_scanner, const Color(0xFF10B981)),
+                  // const SizedBox(width: 8),
+                  // _buildMethodTab('UPAY', 'UPay LK', Icons.phone_android, const Color(0xFF8B5CF6)),
+                  */
                 ],
               ),
               const SizedBox(height: 16),
 
-              // Amount Section
-              const Text(
-                'Withdrawal Amount',
-                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+              // Amount Section Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Withdrawal Amount',
+                    style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    'Min: 7 USDT (≈ ${widget.currency.symbol}${_minAmountInUserCurrency.toStringAsFixed(_minAmountInUserCurrency >= 50 ? 0 : 2)})',
+                    style: TextStyle(
+                      color: isBelowMin ? const Color(0xFFF87171) : const Color(0xFFFBBF24),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
+
+              // Amount Input Field
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(
+                    color: isBelowMin ? const Color(0xFFEF4444) : Colors.white12,
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -415,38 +582,104 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                     TextButton(
                       onPressed: () {
                         setState(() {
-                          _amountController.text = widget.currentBalance.toStringAsFixed(2);
+                          _amountController.text = widget.currentBalance >= 50
+                              ? widget.currentBalance.toStringAsFixed(0)
+                              : widget.currentBalance.toStringAsFixed(2);
                         });
                       },
-                      child: const Text('MAX', style: TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: const Text(
+                        'MAX',
+                        style: TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
 
-              // Quick amount pills
+              // Real-Time Live USDT Conversion Display Banner
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isBelowMin
+                        ? const Color(0xFFEF4444).withOpacity(0.5)
+                        : const Color(0xFFF59E0B).withOpacity(0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.currency_exchange, color: Color(0xFFFBBF24), size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'You will receive: ',
+                                style: TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                              Text(
+                                '≈ ${usdtEquiv.toStringAsFixed(2)} USDT',
+                                style: TextStyle(
+                                  color: isBelowMin ? const Color(0xFFF87171) : const Color(0xFFFBBF24),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Platform Rate: 1 USDT = ${widget.currency.symbol}${_exchangeRate.toStringAsFixed(2)}',
+                            style: const TextStyle(color: Colors.white38, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Quick Amount Preset Pills (Calibrated to 7, 15, 25, 50, 100 USDT)
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
                 children: [
                   ..._quickAmounts.map((amt) {
+                    final isSelected = (double.tryParse(_amountController.text.trim()) ?? 0.0) == amt;
+                    final usdtChipVal = (amt / _exchangeRate).round();
                     return InkWell(
                       onTap: () {
                         setState(() {
-                          _amountController.text = amt.toStringAsFixed(0);
+                          _amountController.text = amt >= 50
+                              ? amt.toStringAsFixed(0)
+                              : amt.toStringAsFixed(2);
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
+                          color: isSelected
+                              ? const Color(0xFFF59E0B).withOpacity(0.25)
+                              : const Color(0xFF1E293B),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white12),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFFF59E0B) : Colors.white12,
+                          ),
                         ),
                         child: Text(
-                          '+${widget.currency.symbol}${amt.toStringAsFixed(0)}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                          '${widget.currency.symbol}${amt >= 50 ? amt.toStringAsFixed(0) : amt.toStringAsFixed(2)} (~$usdtChipVal USDT)',
+                          style: TextStyle(
+                            color: isSelected ? const Color(0xFFFBBF24) : Colors.white70,
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                          ),
                         ),
                       ),
                     );
@@ -455,106 +688,74 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               ),
               const SizedBox(height: 18),
 
-              // Payout Destination Form
-              if (_selectedMethod == 'BANK') ...[
-                const Text(
-                  'Bank Account Details',
-                  style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+              // Binance Payout Destination Form
+              const Text(
+                'Binance / USDT Payout Details',
+                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+
+              // Binance Pay ID or USDT Address Field
+              _buildTextField(
+                controller: _binancePayIdController,
+                hint: 'Binance Pay ID (e.g. 548934240) or USDT BEP20/TRC20 Address',
+                icon: Icons.account_balance_wallet,
+              ),
+              const SizedBox(height: 10),
+
+              // Binance Nickname / Account Name (Optional)
+              _buildTextField(
+                controller: _binanceNicknameController,
+                hint: 'Binance Nickname / Account Name (Optional)',
+                icon: Icons.person_outline,
+              ),
+              const SizedBox(height: 10),
+
+              // Fast Payout Notice
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.2)),
                 ),
-                const SizedBox(height: 8),
-                // Bank Picker Dropdown
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white12),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _sriLankaBanks.contains(_bankNameController.text)
-                          ? _bankNameController.text
-                          : _sriLankaBanks[0],
-                      dropdownColor: const Color(0xFF1E293B),
-                      isExpanded: true,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      items: _sriLankaBanks.map((b) {
-                        return DropdownMenuItem<String>(
-                          value: b,
-                          child: Text(b),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _bankNameController.text = val);
-                        }
-                      },
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Icon(Icons.flash_on, color: Color(0xFFFBBF24), size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Direct Crypto Transfer: Funds will be sent directly to your Binance Pay ID or USDT address within 15–30 minutes upon admin verification.',
+                        style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.4),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 10),
+              ),
 
-                // Account Number
-                _buildTextField(
-                  controller: _bankAccNumController,
-                  hint: 'Bank Account Number',
-                  icon: Icons.numbers,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                const SizedBox(height: 10),
+              /*
+              // TEMPORARILY COMMENTED OUT FORM FIELDS (Bank / iPay / UPay):
+              if (_selectedMethod == 'BANK') ...[
+                // Bank Details Form...
+              ] else if (_selectedMethod == 'IPAY') ...[
+                // iPay Form...
+              ]
+              */
 
-                // Account Holder Name
-                _buildTextField(
-                  controller: _bankAccHolderController,
-                  hint: 'Account Holder Full Name',
-                  icon: Icons.person,
-                ),
-                const SizedBox(height: 10),
-
-                // Branch Name
-                _buildTextField(
-                  controller: _branchNameController,
-                  hint: 'Branch Name (e.g. Kollupitiya, Kandy)',
-                  icon: Icons.location_on,
-                ),
-              ] else ...[
-                // iPay or UPay details
-                Text(
-                  '${_selectedMethod.toUpperCase()} Account Details',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _selectedMethod == 'IPAY' ? _ipayMobileController : _upayMobileController,
-                  hint: 'Registered Mobile Number (e.g. 0771234567)',
-                  icon: Icons.phone_android,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                const SizedBox(height: 10),
-                _buildTextField(
-                  controller: _selectedMethod == 'IPAY' ? _ipayHolderController : _upayHolderController,
-                  hint: 'Wallet Account Holder Name',
-                  icon: Icons.person,
-                ),
-              ],
-
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
 
               // Save Details Checkbox
               Theme(
-                data: ThemeData(
-                  unselectedWidgetColor: Colors.white54,
-                ),
+                data: ThemeData(unselectedWidgetColor: Colors.white54),
                 child: CheckboxListTile(
                   value: _saveDetailsCheckbox,
-                  activeColor: const Color(0xFF38BDF8),
+                  activeColor: const Color(0xFFF59E0B),
                   checkColor: Colors.black,
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                   title: const Text(
-                    'Save these details for future withdrawals',
+                    'Save Binance details for future withdrawals',
                     style: TextStyle(color: Colors.white, fontSize: 13),
                   ),
                   onChanged: (val) {
@@ -652,47 +853,6 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
     );
   }
 
-  Widget _buildMethodTab(String method, String label, IconData icon, Color color) {
-    final isSelected = _selectedMethod == method;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedMethod = method;
-            _errorMessage = null;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.2) : const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? color : Colors.white10,
-              width: isSelected ? 1.5 : 1.0,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: isSelected ? color : Colors.white54, size: 20),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white54,
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildTextField({
     required TextEditingController controller,
     required String hint,
@@ -714,7 +874,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
-          prefixIcon: Icon(icon, color: Colors.white54, size: 18),
+          prefixIcon: Icon(icon, color: const Color(0xFFFBBF24), size: 18),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           border: InputBorder.none,
         ),
