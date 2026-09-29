@@ -17,38 +17,44 @@ class PlaneGraph extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double norm = math.max(0.0, multiplier - 1.0);
-        // Dynamic Aviator curve: exactly 0.50 progress at 2.00x, smooth cruising plateau at high multipliers
-        double progress = 1.0 - (1.0 / (1.0 + norm));
+        // Moderate progressive curve: reaches mid-screen comfortably at 2.0x, smooth asymptotic cruising
+        double progress = 1.0 - (1.0 / (1.0 + norm * 0.95));
         progress = progress.clamp(0.0, 0.985);
         
         double w = constraints.maxWidth;
         double h = constraints.maxHeight;
         double t = progress;
 
-        // P0: Runway origin (bottom left)
-        // P1: Mid-ascent guide (elevated to produce steep, exciting early climb by 2.0x)
-        // P2: High altitude cruise target (upper right quadrant)
-        final p0 = Offset(0.0, h * 0.95);
-        final p1 = Offset(w * 0.42, h * 0.52);
-        final p2 = Offset(w * 0.82, h * 0.22);
+        // P0: Runway start (bottom left)
+        // P1: Smooth horizontal ground acceleration
+        // P2: Moderate upward curve passing comfortably below central multiplier text
+        // P3: High altitude cruise plateau in the upper-right sky
+        final p0 = Offset(0.0, h * 0.94);
+        final p1 = Offset(w * 0.28, h * 0.88);
+        final p2 = Offset(w * 0.58, h * 0.54);
+        final p3 = Offset(w * 0.84, h * 0.22);
 
-        // Position along the quadratic bezier curve
+        // De Casteljau cubic subdivision for exact mathematical curve point & tangent
         final double oneMinusT = 1.0 - t;
-        final double posX = oneMinusT * oneMinusT * p0.dx + 2.0 * oneMinusT * t * p1.dx + t * t * p2.dx;
-        final double posY = oneMinusT * oneMinusT * p0.dy + 2.0 * oneMinusT * t * p1.dy + t * t * p2.dy;
+        final p01 = Offset(oneMinusT * p0.dx + t * p1.dx, oneMinusT * p0.dy + t * p1.dy);
+        final p12 = Offset(oneMinusT * p1.dx + t * p2.dx, oneMinusT * p1.dy + t * p2.dy);
+        final p23 = Offset(oneMinusT * p2.dx + t * p3.dx, oneMinusT * p2.dy + t * p3.dy);
 
-        // Tangent derivatives (dx/dt, dy/dt) for pitch angle
-        final double dx = 2.0 * oneMinusT * (p1.dx - p0.dx) + 2.0 * t * (p2.dx - p1.dx);
-        final double dy = 2.0 * oneMinusT * (p1.dy - p0.dy) + 2.0 * t * (p2.dy - p1.dy);
-        
-        // Icons.flight default points straight UP. Add pi/2 to point along tangent.
-        double planeAngle = math.atan2(dy, dx) + (math.pi / 2);
+        final p012 = Offset(oneMinusT * p01.dx + t * p12.dx, oneMinusT * p01.dy + t * p12.dy);
+        final p123 = Offset(oneMinusT * p12.dx + t * p23.dx, oneMinusT * p12.dy + t * p23.dy);
 
-        // Subtle aerodynamic harmonic float when airborne
+        final p0123 = Offset(oneMinusT * p012.dx + t * p123.dx, oneMinusT * p012.dy + t * p123.dy);
+
+        // Plane position and natural pitch angle following tangent vector
+        final double posX = p0123.dx;
+        final double posY = p0123.dy;
+        final double planeAngle = math.atan2(p0123.dy - p012.dy, p0123.dx - p012.dx) + (math.pi / 2);
+
+        // Subtle, lightweight aerodynamic float (harmonic micro-motion)
         final double airborneFactor = math.min(1.0, t * 2.5);
-        final double floatOffset = math.sin(multiplier * 2.8) * 3.5 * airborneFactor;
+        final double floatOffset = math.sin(multiplier * 2.2) * 2.5 * airborneFactor;
         final double finalX = posX;
-        final double finalY = (posY + floatOffset).clamp(h * 0.14, h * 0.97);
+        final double finalY = (posY + floatOffset).clamp(h * 0.16, h * 0.96);
 
         return Stack(
           clipBehavior: Clip.none,
@@ -95,47 +101,61 @@ class GraphPainter extends CustomPainter {
     double w = size.width;
     double h = size.height;
 
-    final p0 = Offset(0.0, h * 0.95);
-    final p1 = Offset(w * 0.42, h * 0.52);
-    final p2 = Offset(w * 0.82, h * 0.22);
+    // Fixed control points for authentic ski-jump flight arc
+    final p0 = Offset(0.0, h * 0.94);
+    final p1 = Offset(w * 0.28, h * 0.88);
+    final p2 = Offset(w * 0.58, h * 0.54);
+    final p3 = Offset(w * 0.84, h * 0.22);
 
     final double oneMinusT = 1.0 - t;
-    final q0 = p0;
-    final q1 = Offset(oneMinusT * p0.dx + t * p1.dx, oneMinusT * p0.dy + t * p1.dy);
-    final q2 = Offset(
-      oneMinusT * oneMinusT * p0.dx + 2.0 * oneMinusT * t * p1.dx + t * t * p2.dx,
-      oneMinusT * oneMinusT * p0.dy + 2.0 * oneMinusT * t * p1.dy + t * t * p2.dy,
-    );
+    final p01 = Offset(oneMinusT * p0.dx + t * p1.dx, oneMinusT * p0.dy + t * p1.dy);
+    final p12 = Offset(oneMinusT * p1.dx + t * p2.dx, oneMinusT * p1.dy + t * p2.dy);
+    final p23 = Offset(oneMinusT * p2.dx + t * p3.dx, oneMinusT * p2.dy + t * p3.dy);
+
+    final p012 = Offset(oneMinusT * p01.dx + t * p12.dx, oneMinusT * p01.dy + t * p12.dy);
+    final p123 = Offset(oneMinusT * p12.dx + t * p23.dx, oneMinusT * p12.dy + t * p23.dy);
+
+    final p0123 = Offset(oneMinusT * p012.dx + t * p123.dx, oneMinusT * p012.dy + t * p123.dy);
 
     final path = Path();
-    path.moveTo(q0.dx, q0.dy);
-    path.quadraticBezierTo(q1.dx, q1.dy, q2.dx, q2.dy);
+    path.moveTo(p0.dx, p0.dy);
+    path.cubicTo(p01.dx, p01.dy, p012.dx, p012.dy, p0123.dx, p0123.dy);
 
-    // Glowing curved flight line
-    final strokePaint = Paint()
-      ..color = isCrashed ? const Color(0xFFEF4444).withOpacity(0.85) : const Color(0xFFEF4444)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 4.5;
-
-    // Rich red gradient fill underneath the curve
+    // 1. Soft red gradient fill underneath the curve (gentle slope fade)
     final fillPaint = Paint()
       ..shader = ui.Gradient.linear(
-        Offset(0, q2.dy),
+        Offset(0, p0123.dy),
         Offset(0, h),
         [
-          (isCrashed ? const Color(0xFFDC2626) : const Color(0xFFEF4444)).withOpacity(0.35),
-          (isCrashed ? const Color(0xFF991B1B) : const Color(0xFFB91C1C)).withOpacity(0.03),
+          (isCrashed ? const Color(0xFFDC2626) : const Color(0xFFEF4444)).withOpacity(0.28),
+          (isCrashed ? const Color(0xFF991B1B) : const Color(0xFFB91C1C)).withOpacity(0.01),
         ],
       )
       ..style = PaintingStyle.fill;
       
-    final fillPath = Path.from(path);
-    fillPath.lineTo(q2.dx, h);
-    fillPath.lineTo(0.0, h);
+    final fillPath = Path();
+    fillPath.moveTo(p0.dx, h);
+    fillPath.lineTo(p0.dx, p0.dy);
+    fillPath.cubicTo(p01.dx, p01.dy, p012.dx, p012.dy, p0123.dx, p0123.dy);
+    fillPath.lineTo(p0123.dx, h);
     fillPath.close();
     
     canvas.drawPath(fillPath, fillPaint);
+
+    // 2. Ambient soft neon glow stroke (zero-overhead lightweight GPU vector)
+    final glowPaint = Paint()
+      ..color = (isCrashed ? const Color(0xFFEF4444) : const Color(0xFFF87171)).withOpacity(0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 7.0;
+    canvas.drawPath(path, glowPaint);
+
+    // 3. Core crisp flight line
+    final strokePaint = Paint()
+      ..color = isCrashed ? const Color(0xFFEF4444).withOpacity(0.9) : const Color(0xFFEF4444)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3.5;
     canvas.drawPath(path, strokePaint);
   }
 
