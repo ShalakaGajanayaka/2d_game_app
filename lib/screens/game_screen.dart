@@ -55,6 +55,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   Timer? _cashoutVictoryTimer1;
   bool _isSubmittingBet1 = false;
   bool _isPressedBet1 = false;
+  bool _handledCashOutInTapDown1 = false;
 
   // Bet 2
   double _betAmount2 = 50.0;
@@ -67,6 +68,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   Timer? _cashoutVictoryTimer2;
   bool _isSubmittingBet2 = false;
   bool _isPressedBet2 = false;
+  bool _handledCashOutInTapDown2 = false;
   
   double _currentMultiplier = 1.0;
   final ValueNotifier<double> _multiplierNotifier = ValueNotifier<double>(1.0);
@@ -623,6 +625,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _isSubmittingBet2 = false;
               _isPressedBet1 = false;
               _isPressedBet2 = false;
+              _handledCashOutInTapDown1 = false;
+              _handledCashOutInTapDown2 = false;
            }
            else if (newStatus == GameStatus.waiting) {
               _controller.stop();
@@ -638,6 +642,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _isSubmittingBet2 = false;
               _isPressedBet1 = false;
               _isPressedBet2 = false;
+              _handledCashOutInTapDown1 = false;
+              _handledCashOutInTapDown2 = false;
 
               // Auto-dispatch in-flight pre-queued bets for the new round
               final bool shouldQueue1 = _isNextRoundQueued1 && !_isBetPlaced1;
@@ -1343,10 +1349,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               behavior: HitTestBehavior.opaque,
               onTapDown: (_) {
                 setState(() {
-                  if (betIndex == 1) _isPressedBet1 = true;
-                  else _isPressedBet2 = true;
+                  if (betIndex == 1) {
+                    _isPressedBet1 = true;
+                  } else {
+                    _isPressedBet2 = true;
+                  }
                 });
                 if (isPlaying && isPlaced && !hasCashedOut) {
+                  if (betIndex == 1) {
+                    _handledCashOutInTapDown1 = true;
+                  } else {
+                    _handledCashOutInTapDown2 = true;
+                  }
                   _cashOut(betIndex);
                 }
               },
@@ -1361,12 +1375,29 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               onTapCancel: () {
                 if (mounted) {
                   setState(() {
-                    if (betIndex == 1) _isPressedBet1 = false;
-                    else _isPressedBet2 = false;
+                    if (betIndex == 1) {
+                      _isPressedBet1 = false;
+                      _handledCashOutInTapDown1 = false;
+                    } else {
+                      _isPressedBet2 = false;
+                      _handledCashOutInTapDown2 = false;
+                    }
                   });
                 }
               },
               onTap: () {
+                // If this single touch already performed a cash-out during onTapDown,
+                // ignore onTap to prevent falling through to pre-queueing the next round.
+                final bool wasHandledInTapDown = betIndex == 1 ? _handledCashOutInTapDown1 : _handledCashOutInTapDown2;
+                if (wasHandledInTapDown) {
+                  if (betIndex == 1) {
+                    _handledCashOutInTapDown1 = false;
+                  } else {
+                    _handledCashOutInTapDown2 = false;
+                  }
+                  return;
+                }
+
                 if (!_isLoggedIn) {
                   _showAuthDialog();
                   ScaffoldMessenger.of(context).showSnackBar(
