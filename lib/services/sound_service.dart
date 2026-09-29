@@ -47,4 +47,12 @@ class SoundService {
   static void playCrash() {
     impl.playCrashSoundImpl();
   }
+
+  static void startMusic() {
+    impl.startMusicImpl();
+  }
+
+  static void stopMusic() {
+    impl.stopMusicImpl();
+  }
 }

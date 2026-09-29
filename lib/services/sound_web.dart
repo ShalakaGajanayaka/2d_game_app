@@ -63,3 +63,22 @@ bool isSoundMutedImpl() {
   } catch (_) {}
   return false;
 }
+
+void startMusicImpl() {
+  try {
+    final skyrushAudio = js.context['SkyRushAudio'];
+    if (skyrushAudio != null) {
+      skyrushAudio.callMethod('startMusic');
+    }
+  } catch (_) {}
+}
+
+void stopMusicImpl() {
+  try {
+    final skyrushAudio = js.context['SkyRushAudio'];
+    if (skyrushAudio != null) {
+      skyrushAudio.callMethod('stopMusic');
+    }
+  } catch (_) {}
+}
+

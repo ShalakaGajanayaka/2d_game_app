@@ -250,6 +250,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         setState(() {
           _isSoundMuted = SoundService.isMuted;
         });
+        if (!_isSoundMuted) {
+          SoundService.startMusic();
+        }
       }
     });
   }

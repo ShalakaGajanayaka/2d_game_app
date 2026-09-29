@@ -279,7 +279,7 @@
       }
     };
 
-    // SkyRush Dynamic Web Audio Synthesizer (0 KB download, tension riser engine)
+    // SkyRush Dynamic Web Audio Synthesizer (0 KB download, tension riser engine & ambient music)
     window.SkyRushAudio = (function() {
       var audioCtx = null;
       var isMuted = false;
@@ -290,6 +290,12 @@
       var lfoGain = null;
       var filter = null;
       var flightGain = null;
+
+      // Motivational Ambient Lounge Music State
+      var musicGain = null;
+      var isMusicPlaying = false;
+      var musicInterval = null;
+      var chordIndex = 0;
 
       function getContext() {
         if (!audioCtx) {
@@ -304,9 +310,165 @@
         return audioCtx;
       }
 
+      function startMusic() {
+        if (isMusicPlaying) return;
+        var ctx = getContext();
+        if (!ctx) return;
+
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(function() {
+            if (!isMusicPlaying && !isMuted) {
+              startMusic();
+            }
+          });
+          return;
+        }
+
+        isMusicPlaying = true;
+
+        if (!musicGain) {
+          musicGain = ctx.createGain();
+          musicGain.gain.setValueAtTime(isMuted ? 0 : 0.12, ctx.currentTime);
+          musicGain.connect(ctx.destination);
+        }
+
+        // Motivational chill cyberpunk lounge chords: Cm -> Ab -> Eb -> Bb/Gm
+        var chordData = [
+          { bass: 65.41, pad: [130.81, 196.00, 311.13, 587.33] }, // C2 & Cm9
+          { bass: 51.91, pad: [103.83, 155.56, 261.63, 392.00] }, // Ab1 & AbMaj7
+          { bass: 77.78, pad: [155.56, 233.08, 311.13, 466.16] }, // Eb2 & EbMaj7
+          { bass: 58.27, pad: [116.54, 174.61, 293.66, 349.23] }, // Bb1 & BbAdd9
+        ];
+
+        function playBar() {
+          if (!isMusicPlaying || !audioCtx) return;
+          try {
+            var now = audioCtx.currentTime;
+            var current = chordData[chordIndex % chordData.length];
+            chordIndex++;
+
+            // 1. Warm Cyber Lounge Pad
+            var chordFilter = audioCtx.createBiquadFilter();
+            chordFilter.type = 'lowpass';
+            chordFilter.frequency.setValueAtTime(450, now);
+            chordFilter.frequency.linearRampToValueAtTime(620, now + 1.5);
+            chordFilter.frequency.linearRampToValueAtTime(400, now + 3.1);
+
+            var chordGain = audioCtx.createGain();
+            chordGain.gain.setValueAtTime(0.0001, now);
+            chordGain.gain.linearRampToValueAtTime(0.18, now + 0.6); // Warm audible pad
+            chordGain.gain.linearRampToValueAtTime(0.14, now + 2.4);
+            chordGain.gain.linearRampToValueAtTime(0.0001, now + 3.4);
+
+            chordFilter.connect(chordGain);
+            chordGain.connect(musicGain);
+
+            var activeNodes = [];
+            for (var i = 0; i < current.pad.length; i++) {
+              var osc = audioCtx.createOscillator();
+              osc.type = i === 0 ? 'sine' : 'triangle';
+              osc.frequency.setValueAtTime(current.pad[i], now);
+              osc.detune.setValueAtTime((i % 2 === 0 ? 3.5 : -3.5), now);
+              osc.connect(chordFilter);
+              osc.start(now);
+              osc.stop(now + 3.4);
+              activeNodes.push(osc);
+            }
+
+            // 2. Groovy Motivational Bassline (4 driving beats per bar: 0.0s, 0.8s, 1.6s, 2.4s)
+            var bassNotes = [
+              current.bass,
+              current.bass,
+              current.bass * 1.5, // 5th
+              current.bass
+            ];
+
+            for (var b = 0; b < 4; b++) {
+              (function(beatIdx) {
+                var bTime = now + (beatIdx * 0.8);
+                var bassOsc = audioCtx.createOscillator();
+                var bassGain = audioCtx.createGain();
+                var bFilter = audioCtx.createBiquadFilter();
+
+                bassOsc.type = 'triangle';
+                bassOsc.frequency.setValueAtTime(bassNotes[beatIdx], bTime);
+
+                bFilter.type = 'lowpass';
+                bFilter.frequency.setValueAtTime(320, bTime);
+                bFilter.frequency.exponentialRampToValueAtTime(90, bTime + 0.35);
+
+                bassGain.gain.setValueAtTime(0.0001, bTime);
+                bassGain.gain.linearRampToValueAtTime(0.28, bTime + 0.02); // Punchy audible bass
+                bassGain.gain.exponentialRampToValueAtTime(0.0001, bTime + 0.55);
+
+                bassOsc.connect(bFilter);
+                bFilter.connect(bassGain);
+                bassGain.connect(musicGain);
+
+                bassOsc.start(bTime);
+                bassOsc.stop(bTime + 0.6);
+                activeNodes.push(bassOsc);
+
+                // Subtle offbeat high-hat/shaker (0.4s after each bass beat)
+                var hatTime = bTime + 0.4;
+                var noiseBuffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.05), audioCtx.sampleRate);
+                var outData = noiseBuffer.getChannelData(0);
+                for (var s = 0; s < outData.length; s++) {
+                  outData[s] = (Math.random() * 2 - 1) * Math.exp(-s / (outData.length * 0.2));
+                }
+                var hatSource = audioCtx.createBufferSource();
+                hatSource.buffer = noiseBuffer;
+                var hatFilter = audioCtx.createBiquadFilter();
+                hatFilter.type = 'highpass';
+                hatFilter.frequency.setValueAtTime(6500, hatTime);
+                var hatGain = audioCtx.createGain();
+                hatGain.gain.setValueAtTime(0.045, hatTime);
+                hatGain.gain.exponentialRampToValueAtTime(0.0001, hatTime + 0.048);
+
+                hatSource.connect(hatFilter);
+                hatFilter.connect(hatGain);
+                hatGain.connect(musicGain);
+                hatSource.start(hatTime);
+                hatSource.stop(hatTime + 0.05);
+                activeNodes.push(hatSource);
+              })(b);
+            }
+
+            setTimeout(function() {
+              try {
+                for (var j = 0; j < activeNodes.length; j++) {
+                  activeNodes[j].disconnect();
+                }
+                chordFilter.disconnect();
+                chordGain.disconnect();
+              } catch (e) {}
+            }, 3600);
+          } catch (e) {}
+        }
+
+        playBar();
+        musicInterval = setInterval(playBar, 3200);
+      }
+
+      function stopMusic() {
+        isMusicPlaying = false;
+        if (musicInterval) {
+          clearInterval(musicInterval);
+          musicInterval = null;
+        }
+      }
+
       function ensureAutoplayResume() {
-        if (audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume();
+        if (audioCtx) {
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().then(function() {
+              if (!isMusicPlaying && !isMuted) {
+                startMusic();
+              }
+            });
+          } else if (!isMusicPlaying && !isMuted) {
+            startMusic();
+          }
         }
       }
 
@@ -334,10 +496,24 @@
           } else if (!isMuted && flightGain && audioCtx && isFlightActive) {
             flightGain.gain.setTargetAtTime(0.075, audioCtx.currentTime, 0.1);
           }
+          if (musicGain && audioCtx) {
+            musicGain.gain.setValueAtTime(isMuted ? 0 : 0.12, audioCtx.currentTime);
+          }
+          if (!isMuted && !isMusicPlaying) {
+            startMusic();
+          }
         },
 
         isMuted: function() {
           return isMuted;
+        },
+
+        startMusic: function() {
+          startMusic();
+        },
+
+        stopMusic: function() {
+          stopMusic();
         },
 
         startFlight: function() {
@@ -400,12 +576,6 @@
             var now = audioCtx.currentTime;
 
             // Pitch ascends smoothly with log2 of multiplier:
-            // 1.00x -> 120 Hz
-            // 2.00x -> 185 Hz
-            // 5.00x -> 270 Hz
-            // 10.00x -> 335 Hz
-            // 25.00x -> 420 Hz
-            // 50.00x -> 485 Hz (cap at 520 Hz)
             var logMult = Math.log2(m);
             var targetFreq = Math.min(520, 120 + (logMult * 65));
             var targetFilter = Math.min(1100, 320 + (logMult * 140));
@@ -416,6 +586,12 @@
             filter.frequency.setTargetAtTime(targetFilter, now, 0.08);
             if (lfo) {
               lfo.frequency.setTargetAtTime(targetLfo, now, 0.08);
+            }
+
+            // Audio ducking: As multiplier climbs, slightly duck background music so jet tension shines
+            if (musicGain && !isMuted) {
+              var duckTarget = (m > 2.5) ? 0.045 : 0.12;
+              musicGain.gain.setTargetAtTime(duckTarget, now, 0.25);
             }
           } catch (e) {}
         },
@@ -451,6 +627,11 @@
                 curGain.gain.setValueAtTime(curGain.gain.value, now);
                 curGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
               }
+            }
+
+            // Restore ambient music volume smoothly after flight ends
+            if (musicGain && !isMuted) {
+              musicGain.gain.setTargetAtTime(0.12, audioCtx.currentTime, 0.35);
             }
 
             setTimeout(function() {

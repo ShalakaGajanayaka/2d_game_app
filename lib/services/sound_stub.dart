@@ -6,3 +6,5 @@ void playCashoutSoundImpl() {}
 void playCrashSoundImpl() {}
 void setSoundMutedImpl(bool muted) {}
 bool isSoundMutedImpl() => false;
+void startMusicImpl() {}
+void stopMusicImpl() {}
