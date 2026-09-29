@@ -154,11 +154,40 @@ class GraphPainter extends CustomPainter {
 
     // 3. Core crisp flight line
     final strokePaint = Paint()
-      ..color = isCrashed ? const Color(0xFFEF4444).withOpacity(0.9) : const Color(0xFFEF4444)
+      ..color = isCrashed ? const Color(0xFFEF4444).withValues(alpha: 0.9) : const Color(0xFFEF4444)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 3.5;
     canvas.drawPath(path, strokePaint);
+
+    // 4. Glowing 3D Terminal Sphere at the exact end of the red line when crashed / flew away
+    if (isCrashed) {
+      final Offset endPoint = p0123;
+
+      // Layer 1: Ambient soft neon glow halo
+      final haloPaint = Paint()
+        ..color = const Color(0xFFEF4444).withValues(alpha: 0.40)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(endPoint, 9.0, haloPaint);
+
+      // Layer 2: Radiant bright crimson aura
+      final auraPaint = Paint()
+        ..color = const Color(0xFFF87171).withValues(alpha: 0.75)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(endPoint, 6.0, auraPaint);
+
+      // Layer 3: Solid vibrant 3D red core sphere
+      final corePaint = Paint()
+        ..color = const Color(0xFFDC2626)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(endPoint, 4.2, corePaint);
+
+      // Layer 4: Specular white reflection dot for 3D glossy sphere look
+      final specularPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.95)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(endPoint.dx - 1.2, endPoint.dy - 1.2), 1.5, specularPaint);
+    }
   }
 
   @override
