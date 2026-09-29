@@ -32,11 +32,12 @@ class CurrencyPickerSheet extends StatefulWidget {
 
 class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
   final TextEditingController _searchController = TextEditingController();
-  List<Currency> _filteredList = Currency.allCurrencies;
+  List<Currency> _filteredList = Currency.supportedCurrencies;
 
   @override
   void initState() {
     super.initState();
+    _filteredList = Currency.supportedCurrencies;
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -50,9 +51,9 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
     final query = _searchController.text.trim().toLowerCase();
     setState(() {
       if (query.isEmpty) {
-        _filteredList = Currency.allCurrencies;
+        _filteredList = Currency.supportedCurrencies;
       } else {
-        _filteredList = Currency.allCurrencies.where((c) {
+        _filteredList = Currency.supportedCurrencies.where((c) {
           return c.code.toLowerCase().contains(query) ||
               c.name.toLowerCase().contains(query) ||
               c.symbol.toLowerCase().contains(query);
@@ -94,7 +95,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Text(
-                    'Select Currency (160+ World Currencies)',
+                    'Select Currency',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -150,7 +151,7 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'POPULAR CHOICES',
+                  'SUPPORTED CURRENCIES',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.45),
                     fontSize: 11,

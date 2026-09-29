@@ -18,19 +18,16 @@ class Currency {
     flag: '🇺🇸',
   );
 
-  static const List<Currency> popularCurrencies = [
+  static const List<Currency> supportedCurrencies = [
     Currency(code: 'USD', name: 'US Dollar', symbol: '\$', flag: '🇺🇸'),
-    Currency(code: 'LKR', name: 'Sri Lankan Rupee', symbol: 'Rs', flag: '🇱🇰'),
+    Currency(code: 'INR', name: 'Indian Rupee', symbol: '₹', flag: '🇮🇳'),
     Currency(code: 'EUR', name: 'Euro', symbol: '€', flag: '🇪🇺'),
     Currency(code: 'GBP', name: 'British Pound', symbol: '£', flag: '🇬🇧'),
-    Currency(code: 'INR', name: 'Indian Rupee', symbol: '₹', flag: '🇮🇳'),
     Currency(code: 'AED', name: 'UAE Dirham', symbol: 'AED', flag: '🇦🇪'),
-    Currency(code: 'CAD', name: 'Canadian Dollar', symbol: 'CA\$', flag: '🇨🇦'),
-    Currency(code: 'AUD', name: 'Australian Dollar', symbol: 'AU\$', flag: '🇦🇺'),
-    Currency(code: 'JPY', name: 'Japanese Yen', symbol: '¥', flag: '🇯🇵'),
-    Currency(code: 'SGD', name: 'Singapore Dollar', symbol: 'S\$', flag: '🇸🇬'),
-    Currency(code: 'USDT', name: 'Tether (Crypto)', symbol: '₮', flag: '🪙'),
+    Currency(code: 'LKR', name: 'Sri Lankan Rupee', symbol: 'Rs', flag: '🇱🇰'),
   ];
+
+  static const List<Currency> popularCurrencies = supportedCurrencies;
 
   static const List<Currency> allCurrencies = [
     Currency(code: 'USD', name: 'United States Dollar', symbol: '\$', flag: '🇺🇸'),
