@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 class PlaneGraph extends StatelessWidget {
   final double multiplier;
@@ -15,32 +16,39 @@ class PlaneGraph extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Asymptotic progress so it never quite hits 1.0 but gets very close.
-        double progress = 1.0 - (1.0 / (1.0 + (multiplier - 1.0) * 0.15));
-        if (progress < 0) progress = 0;
-        if (progress > 1.0) progress = 1.0;
+        final double norm = math.max(0.0, multiplier - 1.0);
+        // Dynamic Aviator curve: exactly 0.50 progress at 2.00x, smooth cruising plateau at high multipliers
+        double progress = 1.0 - (1.0 / (1.0 + norm));
+        progress = progress.clamp(0.0, 0.985);
         
         double w = constraints.maxWidth;
         double h = constraints.maxHeight;
         double t = progress;
 
-        // Use a fixed quadratic bezier curve for the flight path.
-        // P0 = (0, h), P1 = (w * 0.8, h), P2 = (w, 0)
-        // x(t) = (1-t)^2 * 0 + 2(1-t)t * (w * 0.8) + t^2 * w
-        // y(t) = (1-t)^2 * h + 2(1-t)t * h + t^2 * 0 = h * (1 - t^2)
-        
-        double x = 2 * (1 - t) * t * (w * 0.8) + (t * t * w);
-        double y = h * (1 - t * t);
+        // P0: Runway origin (bottom left)
+        // P1: Mid-ascent guide (elevated to produce steep, exciting early climb by 2.0x)
+        // P2: High altitude cruise target (upper right quadrant)
+        final p0 = Offset(0.0, h * 0.95);
+        final p1 = Offset(w * 0.42, h * 0.52);
+        final p2 = Offset(w * 0.82, h * 0.22);
 
-        // Calculate tangent (derivative) at t
-        // dx/dt = 1.6 * w * (1 - 2t) + 2 * t * w = w * (1.6 - 1.2 * t)
-        // dy/dt = -2 * t * h
-        double dx = w * (1.6 - 1.2 * t);
-        double dy = -2 * t * h;
+        // Position along the quadratic bezier curve
+        final double oneMinusT = 1.0 - t;
+        final double posX = oneMinusT * oneMinusT * p0.dx + 2.0 * oneMinusT * t * p1.dx + t * t * p2.dx;
+        final double posY = oneMinusT * oneMinusT * p0.dy + 2.0 * oneMinusT * t * p1.dy + t * t * p2.dy;
+
+        // Tangent derivatives (dx/dt, dy/dt) for pitch angle
+        final double dx = 2.0 * oneMinusT * (p1.dx - p0.dx) + 2.0 * t * (p2.dx - p1.dx);
+        final double dy = 2.0 * oneMinusT * (p1.dy - p0.dy) + 2.0 * t * (p2.dy - p1.dy);
         
-        // Icons.flight default points straight UP.
-        // We add pi/2 (90 degrees) to the computed angle so the plane's nose points along the tangent.
+        // Icons.flight default points straight UP. Add pi/2 to point along tangent.
         double planeAngle = math.atan2(dy, dx) + (math.pi / 2);
+
+        // Subtle aerodynamic harmonic float when airborne
+        final double airborneFactor = math.min(1.0, t * 2.5);
+        final double floatOffset = math.sin(multiplier * 2.8) * 3.5 * airborneFactor;
+        final double finalX = posX;
+        final double finalY = (posY + floatOffset).clamp(h * 0.14, h * 0.97);
 
         return Stack(
           clipBehavior: Clip.none,
@@ -50,8 +58,8 @@ class PlaneGraph extends StatelessWidget {
               painter: GraphPainter(t, isCrashed),
             ),
             Positioned(
-              left: x - 80,
-              top: y - 80,
+              left: finalX - 80,
+              top: finalY - 80,
               child: SizedBox(
                 width: 160,
                 height: 160,
@@ -84,48 +92,51 @@ class GraphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = isCrashed ? Colors.red.withOpacity(0.5) : Colors.redAccent.withOpacity(0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0;
-
     double w = size.width;
     double h = size.height;
 
+    final p0 = Offset(0.0, h * 0.95);
+    final p1 = Offset(w * 0.42, h * 0.52);
+    final p2 = Offset(w * 0.82, h * 0.22);
+
+    final double oneMinusT = 1.0 - t;
+    final q0 = p0;
+    final q1 = Offset(oneMinusT * p0.dx + t * p1.dx, oneMinusT * p0.dy + t * p1.dy);
+    final q2 = Offset(
+      oneMinusT * oneMinusT * p0.dx + 2.0 * oneMinusT * t * p1.dx + t * t * p2.dx,
+      oneMinusT * oneMinusT * p0.dy + 2.0 * oneMinusT * t * p1.dy + t * t * p2.dy,
+    );
+
     final path = Path();
-    path.moveTo(0, h);
-    
-    // Draw the curve up to t
-    // We can't just draw the full bezier, we must draw a segment from 0 to t.
-    // The control points for the sub-curve from 0 to t of a quadratic bezier are:
-    // Q0 = P0
-    // Q1 = (1-t)*P0 + t*P1
-    // Q2 = B(t)
-    
-    double p1x = w * 0.8;
-    double p1y = h;
-    
-    double q1x = (1 - t) * 0 + t * p1x;
-    double q1y = (1 - t) * h + t * p1y; // Since P0y and P1y are both h, Q1y is just h.
-    
-    double q2x = 2 * (1 - t) * t * p1x + (t * t * w);
-    double q2y = h * (1 - t * t);
-    
-    path.quadraticBezierTo(q1x, q1y, q2x, q2y);
+    path.moveTo(q0.dx, q0.dy);
+    path.quadraticBezierTo(q1.dx, q1.dy, q2.dx, q2.dy);
 
-    canvas.drawPath(path, paint);
+    // Glowing curved flight line
+    final strokePaint = Paint()
+      ..color = isCrashed ? const Color(0xFFEF4444).withOpacity(0.85) : const Color(0xFFEF4444)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 4.5;
 
-    // Fill underneath the curve
+    // Rich red gradient fill underneath the curve
     final fillPaint = Paint()
-      ..color = isCrashed ? Colors.red.withOpacity(0.2) : Colors.redAccent.withOpacity(0.2)
+      ..shader = ui.Gradient.linear(
+        Offset(0, q2.dy),
+        Offset(0, h),
+        [
+          (isCrashed ? const Color(0xFFDC2626) : const Color(0xFFEF4444)).withOpacity(0.35),
+          (isCrashed ? const Color(0xFF991B1B) : const Color(0xFFB91C1C)).withOpacity(0.03),
+        ],
+      )
       ..style = PaintingStyle.fill;
       
     final fillPath = Path.from(path);
-    fillPath.lineTo(q2x, h);
-    fillPath.lineTo(0, h);
+    fillPath.lineTo(q2.dx, h);
+    fillPath.lineTo(0.0, h);
     fillPath.close();
     
     canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, strokePaint);
   }
 
   @override
