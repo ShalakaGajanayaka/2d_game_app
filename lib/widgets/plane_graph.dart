@@ -50,9 +50,11 @@ class PlaneGraph extends StatelessWidget {
         final double posY = p0123.dy;
         final double planeAngle = math.atan2(p0123.dy - p012.dy, p0123.dx - p012.dx) + (math.pi / 2);
 
-        // Subtle, lightweight aerodynamic float (harmonic micro-motion)
+        // Subtle, lightweight aerodynamic float normalized to linear elapsed time
+        // Prevents violent high-frequency oscillation at high multipliers (e.g. 60x+)
         final double airborneFactor = math.min(1.0, t * 2.5);
-        final double floatOffset = math.sin(multiplier * 2.2) * 2.5 * airborneFactor;
+        final double elapsedSec = math.log(math.max(1.0, multiplier)) / 0.095;
+        final double floatOffset = math.sin(elapsedSec * 2.0) * 1.8 * airborneFactor;
         final double finalX = posX;
         final double finalY = (posY + floatOffset).clamp(h * 0.16, h * 0.98);
 
