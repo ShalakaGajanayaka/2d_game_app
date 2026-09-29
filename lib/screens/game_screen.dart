@@ -817,17 +817,30 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     socket.on('userBalanceUpdated', (data) {
       if (!mounted) return;
       final targetUser = data['username']?.toString()?.toLowerCase();
-      final myUser = _currentUser?['username']?.toString()?.toLowerCase() ??
-          _currentUser?['email']?.toString()?.toLowerCase();
+      final targetEmail = data['email']?.toString()?.toLowerCase();
+      final targetId = data['userId']?.toString();
 
-      if (myUser != null && targetUser != null && targetUser == myUser) {
+      final myUser = _currentUser?['username']?.toString()?.toLowerCase();
+      final myEmail = _currentUser?['email']?.toString()?.toLowerCase();
+      final myId = _currentUser?['id']?.toString();
+
+      final bool isMatch = (targetUser != null && (targetUser == myUser || targetUser == myEmail)) ||
+          (targetEmail != null && (targetEmail == myEmail || targetEmail == myUser)) ||
+          (targetId != null && targetId == myId);
+
+      if (isMatch) {
         final newBal = (data['balance'] as num?)?.toDouble();
         final msg = data['message'] as String? ?? 'Wallet balance updated! 💰';
+        final newCurrencyCode = data['currency'] as String?;
         if (newBal != null) {
           setState(() {
             _balance = newBal;
             if (_currentUser != null) {
               _currentUser!['balance'] = newBal;
+              if (newCurrencyCode != null && newCurrencyCode.isNotEmpty) {
+                _currentUser!['currency'] = newCurrencyCode;
+                _userCurrency = Currency.getByCode(newCurrencyCode);
+              }
             }
           });
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2891,7 +2904,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         currency: _userCurrency,
         authToken: _authToken!,
         serverBaseUrl: _getServerBaseUrl(),
-        onDepositSubmitted: () {},
+        onDepositSubmitted: () {
+          _tryAutoLogin();
+        },
       ),
     );
   }
