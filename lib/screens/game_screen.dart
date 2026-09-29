@@ -131,7 +131,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         if (_status == GameStatus.playing || _status == GameStatus.spectating) {
           final double syncedServerEpoch = DateTime.now().millisecondsSinceEpoch + _serverClockOffset;
           final double elapsedSeconds = max(0.0, (syncedServerEpoch - _serverStartTime) / 1000.0);
-          final double nextMultiplier = 1.0 + pow(elapsedSeconds, 2.5) / 10.0;
+          // Industry standard smooth exponential progression: e^(0.095 * t) (~7.3s to reach 2.00x)
+          final double nextMultiplier = max(1.0, exp(0.095 * elapsedSeconds));
           _currentMultiplier = nextMultiplier;
           _multiplierNotifier.value = nextMultiplier;
         }
