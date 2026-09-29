@@ -40,20 +40,20 @@ class _CurrencySelectorSheetState extends State<CurrencySelectorSheet> {
   };
 
   final List<Currency> _selectableCurrencies = [
-    const Currency(code: 'LKR', name: 'Sri Lankan Rupee', symbol: 'Rs', flag: '🇱🇰'),
     const Currency(code: 'USD', name: 'US Dollar (USDT)', symbol: '\$', flag: '🇺🇸'),
     const Currency(code: 'INR', name: 'Indian Rupee', symbol: '₹', flag: '🇮🇳'),
     const Currency(code: 'EUR', name: 'Euro', symbol: '€', flag: '🇪🇺'),
     const Currency(code: 'GBP', name: 'British Pound', symbol: '£', flag: '🇬🇧'),
     const Currency(code: 'AED', name: 'UAE Dirham', symbol: 'AED', flag: '🇦🇪'),
+    const Currency(code: 'LKR', name: 'Sri Lankan Rupee', symbol: 'Rs', flag: '🇱🇰'),
   ];
 
   @override
   void initState() {
     super.initState();
-    // Default preview target: if current is LKR, select USD; if USD, select LKR
+    // Default preview target: prioritize USD as first option, or fallback smoothly
     final cur = widget.currentCurrency.code.toUpperCase();
-    _selectedCode = (cur == 'LKR') ? 'USD' : (cur == 'USD' ? 'LKR' : 'USD');
+    _selectedCode = (cur == 'USD') ? 'LKR' : 'USD';
     _fetchLiveRates();
   }
 
