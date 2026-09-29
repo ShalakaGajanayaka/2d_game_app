@@ -25,6 +25,7 @@ import '../widgets/bet_history_sheet.dart';
 import '../widgets/currency_selector_sheet.dart';
 import '../models/live_bets_adapter.dart';
 import '../services/fullscreen_service.dart';
+import '../services/sound_service.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -44,6 +45,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _isLoggedIn = false;
   Map<String, dynamic>? _currentUser;
   String? _authToken;
+  bool _isSoundMuted = false;
   
   // Bet 1
   double _betAmount1 = 50.0;
@@ -236,12 +238,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           final double nextMultiplier = max(1.0, exp(0.095 * elapsedSeconds));
           _currentMultiplier = nextMultiplier;
           _multiplierNotifier.value = nextMultiplier;
+          SoundService.updateMultiplier(nextMultiplier);
         }
     });
 
     _initSocket();
     _detectGeoCurrency();
     _tryAutoLogin();
+    SoundService.init().then((_) {
+      if (mounted) {
+        setState(() {
+          _isSoundMuted = SoundService.isMuted;
+        });
+      }
+    });
   }
 
   String _getServerBaseUrl() {
@@ -606,6 +616,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       // If client was still stuck in waiting due to a dropped/delayed start packet, immediately transition!
       if (_status == GameStatus.waiting) {
         _localCountdownTimer?.cancel();
+        SoundService.startFlight();
         setState(() {
           _status = (_isBetPlaced1 || _isBetPlaced2) ? GameStatus.playing : GameStatus.spectating;
           _controller.repeat();
@@ -685,8 +696,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _currentMultiplier = 1.0;
               _multiplierNotifier.value = 1.0;
               _controller.repeat();
+              SoundService.startFlight();
            } 
            else if (newStatus == GameStatus.crashed) {
+              SoundService.stopFlight(crashed: true);
               _localCountdownTimer?.cancel();
               _controller.stop();
               _floatingWinTimer?.cancel();
@@ -723,6 +736,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _handledCashOutInTapDown2 = false;
            }
            else if (newStatus == GameStatus.waiting) {
+              SoundService.stopFlight(crashed: false);
               _controller.stop();
               _currentMultiplier = 1.0;
               _multiplierNotifier.value = 1.0;
@@ -1090,6 +1104,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         final double newBal = (data['balance'] as num).toDouble();
         final myId = betIndex == 1 ? 'my_bet_1' : 'my_bet_2';
 
+        SoundService.playCashout();
         setState(() {
           _balance = newBal;
           _recentlyCashedOut.add(myId);
@@ -1192,6 +1207,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    SoundService.stopFlight(crashed: false);
     _zeroBalanceToggleTimer?.cancel();
     _localCountdownTimer?.cancel();
     _clockSyncTimer?.cancel();
@@ -3684,6 +3700,44 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         ),
                       ),
                     ),
+                  // Sound Mute/Unmute Toggle
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Center(
+                      child: InkWell(
+                        onTap: () {
+                          final newMuted = !_isSoundMuted;
+                          setState(() {
+                            _isSoundMuted = newMuted;
+                          });
+                          SoundService.setMuted(newMuted);
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Tooltip(
+                          message: _isSoundMuted ? 'Unmute Sound' : 'Mute Sound',
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _isSoundMuted
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _isSoundMuted
+                                    ? Colors.white.withValues(alpha: 0.12)
+                                    : const Color(0xFF38BDF8).withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Icon(
+                              _isSoundMuted ? Icons.volume_off : Icons.volume_up,
+                              size: 16,
+                              color: _isSoundMuted ? Colors.white38 : const Color(0xFF38BDF8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               );
             },

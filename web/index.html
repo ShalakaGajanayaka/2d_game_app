@@ -278,6 +278,233 @@
         }
       }
     };
+
+    // SkyRush Dynamic Web Audio Synthesizer (0 KB download, tension riser engine)
+    window.SkyRushAudio = (function() {
+      var audioCtx = null;
+      var isMuted = false;
+      var isFlightActive = false;
+      var osc1 = null;
+      var osc2 = null;
+      var lfo = null;
+      var lfoGain = null;
+      var filter = null;
+      var flightGain = null;
+
+      function getContext() {
+        if (!audioCtx) {
+          var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+          }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      function ensureAutoplayResume() {
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }
+
+      window.addEventListener('click', ensureAutoplayResume, { once: false, passive: true });
+      window.addEventListener('touchstart', ensureAutoplayResume, { once: false, passive: true });
+      window.addEventListener('keydown', ensureAutoplayResume, { once: false, passive: true });
+
+      return {
+        init: function() {
+          try {
+            var saved = localStorage.getItem('skyrush_sound_muted');
+            if (saved === 'true') {
+              isMuted = true;
+            }
+          } catch(e) {}
+        },
+
+        setMuted: function(muted) {
+          isMuted = !!muted;
+          try {
+            localStorage.setItem('skyrush_sound_muted', isMuted ? 'true' : 'false');
+          } catch(e) {}
+          if (isMuted && flightGain && audioCtx) {
+            flightGain.gain.setValueAtTime(0, audioCtx.currentTime);
+          } else if (!isMuted && flightGain && audioCtx && isFlightActive) {
+            flightGain.gain.setTargetAtTime(0.075, audioCtx.currentTime, 0.1);
+          }
+        },
+
+        isMuted: function() {
+          return isMuted;
+        },
+
+        startFlight: function() {
+          if (isFlightActive) return;
+          var ctx = getContext();
+          if (!ctx) return;
+          isFlightActive = true;
+
+          try {
+            var now = ctx.currentTime;
+
+            // Main Jet Turbine Oscillator (Triangle - deep and warm)
+            osc1 = ctx.createOscillator();
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(120, now);
+
+            // Second Harmonic / Air Shimmer (Sine an octave higher)
+            osc2 = ctx.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(240, now);
+
+            // Subtle LFO (Low Frequency Oscillator) for engine pulse / heartbeat tension
+            lfo = ctx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.setValueAtTime(2.2, now); // 2.2 Hz pulse
+            lfoGain = ctx.createGain();
+            lfoGain.gain.setValueAtTime(12, now);
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc1.frequency);
+
+            // Low-pass Filter to keep sound pleasant, smooth, and warm (no harsh frequencies)
+            filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(320, now);
+            filter.Q.setValueAtTime(2.0, now);
+
+            // Flight Volume Gain
+            flightGain = ctx.createGain();
+            var targetVol = isMuted ? 0 : 0.075; // Pleasant, gentle ambient level
+            flightGain.gain.setValueAtTime(0.0001, now);
+            flightGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, targetVol), now + 0.35);
+
+            osc1.connect(filter);
+            osc2.connect(filter);
+            filter.connect(flightGain);
+            flightGain.connect(ctx.destination);
+
+            osc1.start(now);
+            osc2.start(now);
+            lfo.start(now);
+          } catch (e) {
+            console.warn('[SkyRushAudio] Error starting flight audio:', e);
+          }
+        },
+
+        updateFlight: function(mult) {
+          if (!isFlightActive || !audioCtx || !osc1 || !osc2 || !filter) return;
+          try {
+            var m = Math.max(1.0, parseFloat(mult) || 1.0);
+            var now = audioCtx.currentTime;
+
+            // Pitch ascends smoothly with log2 of multiplier:
+            // 1.00x -> 120 Hz
+            // 2.00x -> 185 Hz
+            // 5.00x -> 270 Hz
+            // 10.00x -> 335 Hz
+            // 25.00x -> 420 Hz
+            // 50.00x -> 485 Hz (cap at 520 Hz)
+            var logMult = Math.log2(m);
+            var targetFreq = Math.min(520, 120 + (logMult * 65));
+            var targetFilter = Math.min(1100, 320 + (logMult * 140));
+            var targetLfo = Math.min(8.0, 2.2 + (logMult * 0.9));
+
+            osc1.frequency.setTargetAtTime(targetFreq, now, 0.08);
+            osc2.frequency.setTargetAtTime(targetFreq * 2, now, 0.08);
+            filter.frequency.setTargetAtTime(targetFilter, now, 0.08);
+            if (lfo) {
+              lfo.frequency.setTargetAtTime(targetLfo, now, 0.08);
+            }
+          } catch (e) {}
+        },
+
+        stopFlight: function(crashed) {
+          if (!isFlightActive) return;
+          isFlightActive = false;
+          if (!audioCtx) return;
+
+          try {
+            var now = audioCtx.currentTime;
+            var curOsc1 = osc1;
+            var curOsc2 = osc2;
+            var curLfo = lfo;
+            var curGain = flightGain;
+            var curFilter = filter;
+
+            osc1 = null;
+            osc2 = null;
+            lfo = null;
+            flightGain = null;
+            filter = null;
+
+            if (curGain) {
+              if (crashed && !isMuted) {
+                // Gentle pitch dive and smooth swoosh fade on crash
+                if (curFilter) {
+                  curFilter.frequency.exponentialRampToValueAtTime(100, now + 0.22);
+                }
+                curGain.gain.setValueAtTime(curGain.gain.value, now);
+                curGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+              } else {
+                curGain.gain.setValueAtTime(curGain.gain.value, now);
+                curGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+              }
+            }
+
+            setTimeout(function() {
+              try {
+                if (curOsc1) curOsc1.stop();
+                if (curOsc2) curOsc2.stop();
+                if (curLfo) curLfo.stop();
+                if (curOsc1) curOsc1.disconnect();
+                if (curOsc2) curOsc2.disconnect();
+                if (curGain) curGain.disconnect();
+              } catch (e) {}
+            }, 300);
+          } catch (e) {}
+        },
+
+        playCashout: function() {
+          if (isMuted) return;
+          var ctx = getContext();
+          if (!ctx) return;
+
+          try {
+            var now = ctx.currentTime;
+            var note1 = ctx.createOscillator();
+            var note2 = ctx.createOscillator();
+            var gain = ctx.createGain();
+
+            note1.type = 'sine';
+            note2.type = 'triangle';
+
+            // Sparkling ascending chime
+            note1.frequency.setValueAtTime(587.33, now); // D5
+            note1.frequency.exponentialRampToValueAtTime(1174.66, now + 0.18); // D6
+
+            note2.frequency.setValueAtTime(880, now); // A5
+            note2.frequency.exponentialRampToValueAtTime(1760, now + 0.22); // A6
+
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.09, now + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+            note1.connect(gain);
+            note2.connect(gain);
+            gain.connect(ctx.destination);
+
+            note1.start(now);
+            note2.start(now);
+            note1.stop(now + 0.3);
+            note2.stop(now + 0.3);
+          } catch (e) {}
+        }
+      };
+    })();
+
+    window.SkyRushAudio.init();
   </script>
 
   <script src="flutter_bootstrap.js" async></script>
