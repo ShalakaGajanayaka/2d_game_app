@@ -50,6 +50,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _isBetPlaced1 = false;
   double _cashedOutMultiplier1 = 0.0;
   bool _hasCashedOut1 = false;
+  bool _showCashoutVictory1 = false;
+  bool _isNextRoundQueued1 = false;
+  Timer? _cashoutVictoryTimer1;
   bool _isSubmittingBet1 = false;
   bool _isPressedBet1 = false;
 
@@ -59,6 +62,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _isBetPlaced2 = false;
   double _cashedOutMultiplier2 = 0.0;
   bool _hasCashedOut2 = false;
+  bool _showCashoutVictory2 = false;
+  bool _isNextRoundQueued2 = false;
+  Timer? _cashoutVictoryTimer2;
   bool _isSubmittingBet2 = false;
   bool _isPressedBet2 = false;
   
@@ -447,6 +453,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       _authToken = null;
       _currentUser = null;
       _balance = 1000.0;
+      _isNextRoundQueued1 = false;
+      _isNextRoundQueued2 = false;
     });
     _detectGeoCurrency();
   }
@@ -587,6 +595,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _controller.stop();
               _floatingWinTimer?.cancel();
               _showFloatingWin = false;
+              _cashoutVictoryTimer1?.cancel();
+              _cashoutVictoryTimer2?.cancel();
+              _showCashoutVictory1 = false;
+              _showCashoutVictory2 = false;
               _currentMultiplier = (data['crashPoint'] ?? data['currentMultiplier'])?.toDouble() ?? 1.0;
               _multiplierNotifier.value = _currentMultiplier;
               _history.insert(0, _currentMultiplier);
@@ -618,10 +630,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _multiplierNotifier.value = 1.0;
               _hasCashedOut1 = false;
               _hasCashedOut2 = false;
+              _cashoutVictoryTimer1?.cancel();
+              _cashoutVictoryTimer2?.cancel();
+              _showCashoutVictory1 = false;
+              _showCashoutVictory2 = false;
               _isSubmittingBet1 = false;
               _isSubmittingBet2 = false;
               _isPressedBet1 = false;
               _isPressedBet2 = false;
+
+              // Auto-dispatch in-flight pre-queued bets for the new round
+              final bool shouldQueue1 = _isNextRoundQueued1 && !_isBetPlaced1;
+              final bool shouldQueue2 = _isNextRoundQueued2 && !_isBetPlaced2;
+              _isNextRoundQueued1 = false;
+              _isNextRoundQueued2 = false;
+
+              if (shouldQueue1 || shouldQueue2) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || _status != GameStatus.waiting) return;
+                  if (shouldQueue1 && !_isBetPlaced1) {
+                    _toggleBet(1);
+                  }
+                  if (shouldQueue2 && !_isBetPlaced2) {
+                    _toggleBet(2);
+                  }
+                });
+              }
            }
            _status = newStatus;
         }
@@ -949,15 +983,37 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           if (betIndex == 1) {
             _hasCashedOut1 = true;
             _cashedOutMultiplier1 = mult;
+            _showCashoutVictory1 = true;
           } else {
             _hasCashedOut2 = true;
             _cashedOutMultiplier2 = mult;
+            _showCashoutVictory2 = true;
           }
           _floatingWinAmount = winAmount;
           _floatingWinMultiplier = mult;
           _showFloatingWin = true;
           _floatingWinKey++;
         });
+
+        if (betIndex == 1) {
+          _cashoutVictoryTimer1?.cancel();
+          _cashoutVictoryTimer1 = Timer(const Duration(milliseconds: 1800), () {
+            if (mounted) {
+              setState(() {
+                _showCashoutVictory1 = false;
+              });
+            }
+          });
+        } else {
+          _cashoutVictoryTimer2?.cancel();
+          _cashoutVictoryTimer2 = Timer(const Duration(milliseconds: 1800), () {
+            if (mounted) {
+              setState(() {
+                _showCashoutVictory2 = false;
+              });
+            }
+          });
+        }
 
         _floatingWinTimer?.cancel();
         _floatingWinTimer = Timer(const Duration(milliseconds: 1600), () {
@@ -979,6 +1035,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         // Cashout was rejected (e.g. crashed in flight)
         final msg = data['message'] ?? 'Cash out failed';
         if (mounted) {
+          setState(() {
+            if (betIndex == 1) {
+              _hasCashedOut1 = false;
+              _showCashoutVictory1 = false;
+            } else {
+              _hasCashedOut2 = false;
+              _showCashoutVictory2 = false;
+            }
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
           );
@@ -1017,6 +1082,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     _zeroBalanceToggleTimer?.cancel();
     _localCountdownTimer?.cancel();
     _clockSyncTimer?.cancel();
+    _cashoutVictoryTimer1?.cancel();
+    _cashoutVictoryTimer2?.cancel();
     _countdownNotifier.dispose();
     socket.dispose();
     _controller.dispose();
@@ -1031,6 +1098,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     TextEditingController controller = betIndex == 1 ? _betController1 : _betController2;
     bool isPlaced = betIndex == 1 ? _isBetPlaced1 : _isBetPlaced2;
     bool hasCashedOut = betIndex == 1 ? _hasCashedOut1 : _hasCashedOut2;
+    bool showVictory = betIndex == 1 ? _showCashoutVictory1 : _showCashoutVictory2;
+    bool isNextRoundQueued = betIndex == 1 ? _isNextRoundQueued1 : _isNextRoundQueued2;
     double cashedOutMult = betIndex == 1 ? _cashedOutMultiplier1 : _cashedOutMultiplier2;
 
     bool isWaiting = _status == GameStatus.waiting;
@@ -1068,17 +1137,33 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         btnGradient = const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]);
         btnText = 'CASH OUT\n${(betAmount * _currentMultiplier).toStringAsFixed(2)}';
         btnShadow = [BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
-      } else if (hasCashedOut) {
+      } else if (showVictory) {
         btnGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]);
         btnShadow = [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.5), blurRadius: 12, offset: const Offset(0, 3))];
+      } else if (isNextRoundQueued) {
+        btnGradient = const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFB91C1C)]);
+        btnText = 'CANCEL\nWAITING';
+        btnShadow = [BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
+      } else {
+        btnGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]);
+        btnText = 'BET\n(NEXT ROUND)';
+        btnShadow = [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
       }
     } else {
       if (isPlaced && !hasCashedOut) {
         btnGradient = LinearGradient(colors: [const Color(0xFFEF4444).withOpacity(0.6), const Color(0xFFB91C1C).withOpacity(0.6)]);
         btnText = 'LOST';
-      } else if (hasCashedOut) {
+      } else if (showVictory) {
         btnGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]);
         btnShadow = [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 3))];
+      } else if (isNextRoundQueued) {
+        btnGradient = const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFB91C1C)]);
+        btnText = 'CANCEL\nWAITING';
+        btnShadow = [BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
+      } else {
+        btnGradient = const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]);
+        btnText = 'BET\n(NEXT ROUND)';
+        btnShadow = [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))];
       }
     }
 
@@ -1090,11 +1175,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: hasCashedOut ? const Color(0xFF10B981).withOpacity(0.8) : const Color(0xFF334155),
-          width: hasCashedOut ? 1.8 : 1.5,
+          color: showVictory ? const Color(0xFF10B981).withOpacity(0.8) : const Color(0xFF334155),
+          width: showVictory ? 1.8 : 1.5,
         ),
         boxShadow: [
-          if (hasCashedOut)
+          if (showVictory)
             BoxShadow(color: const Color(0xFF10B981).withOpacity(0.18), blurRadius: 14, offset: const Offset(0, 2))
           else
             BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
@@ -1297,6 +1382,48 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   _toggleBet(betIndex);
                 } else if (isPlaying && isPlaced && !hasCashedOut) {
                   _cashOut(betIndex);
+                } else if ((isPlaying || _status == GameStatus.crashed) && (!isPlaced || (hasCashedOut && !showVictory))) {
+                  // In-flight pre-queue toggle
+                  final double currentBet = betIndex == 1 ? _betAmount1 : _betAmount2;
+                  final bool isCurrentlyQueued = betIndex == 1 ? _isNextRoundQueued1 : _isNextRoundQueued2;
+
+                  if (!isCurrentlyQueued) {
+                    if (currentBet < 50) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Minimum bet is 50!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+                      );
+                      return;
+                    }
+                    if (currentBet > 20000) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Maximum bet is 20,000!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+                      );
+                      return;
+                    }
+                    final double otherQueuedAmount = (betIndex == 1 ? (_isNextRoundQueued2 ? _betAmount2 : 0.0) : (_isNextRoundQueued1 ? _betAmount1 : 0.0));
+                    if (_balance < (currentBet + otherQueuedAmount)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Insufficient balance!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+                      );
+                      return;
+                    }
+
+                    setState(() {
+                      if (betIndex == 1) {
+                        _isNextRoundQueued1 = true;
+                      } else {
+                        _isNextRoundQueued2 = true;
+                      }
+                    });
+                  } else {
+                    setState(() {
+                      if (betIndex == 1) {
+                        _isNextRoundQueued1 = false;
+                      } else {
+                        _isNextRoundQueued2 = false;
+                      }
+                    });
+                  }
                 }
               },
               child: AnimatedScale(
@@ -1311,10 +1438,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       gradient: btnGradient,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: btnShadow,
-                      border: hasCashedOut ? Border.all(color: const Color(0xFF34D399), width: 1.5) : null,
+                      border: showVictory ? Border.all(color: const Color(0xFF34D399), width: 1.5) : null,
                     ),
                     child: Center(
-                      child: hasCashedOut
+                      child: showVictory
                           ? Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -1367,17 +1494,37 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                   valueListenable: _multiplierNotifier,
                                   builder: (context, mult, child) {
                                     return Text(
-                                      'CASH OUT\n${(betAmount * mult).toStringAsFixed(2)}',
+                                      'CASH OUT\n${_userCurrency.symbol}${(betAmount * mult).toStringAsFixed(2)}',
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
                                     );
                                   },
                                 )
-                              : Text(
-                                  btnText,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
-                                ),
+                              : ((isPlaying || _status == GameStatus.crashed) && (!isPlaced || (hasCashedOut && !showVictory)))
+                                  ? Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          isNextRoundQueued ? 'CANCEL' : 'BET',
+                                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                                        ),
+                                        const SizedBox(height: 1),
+                                        Text(
+                                          isNextRoundQueued ? '(WAITING)' : '(NEXT ROUND)',
+                                          style: TextStyle(
+                                            color: isNextRoundQueued ? const Color(0xFFFECACA) : const Color(0xFFA7F3D0),
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      btnText,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                                    ),
                     ),
                   ),
                 ),
