@@ -26,14 +26,29 @@ class _DepositSheetState extends State<DepositSheet> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _refController = TextEditingController();
 
-  String _selectedChannel = 'ipay';
+  String _selectedChannel = 'binance_usdt';
   bool _isSubmitting = false;
   String? _errorMessage;
 
   final List<Map<String, dynamic>> _channels = [
     {
+      'id': 'binance_usdt',
+      'name': 'Binance / USDT',
+      'shortName': 'Binance',
+      'badge': 'Crypto / Instant',
+      'accountNumber': 'Pay ID: 84920193',
+      'binancePayId': '84920193',
+      'usdtTrc20Address': 'TYDzsYUEpvnYmQk4zGP9sWWcTEd36mAtW6',
+      'accountName': 'SkyRush Official Binance',
+      'instructions': '1. Open Binance App or your Crypto Wallet.\n2. Transfer USDT via Binance Pay (Pay ID: 84920193) or TRC-20.\n3. Paste the Binance Order ID / TxID or proof link in the reference box below.',
+      'icon': Icons.currency_bitcoin,
+      'color': const Color(0xFFF59E0B),
+      'enabled': true,
+    },
+    {
       'id': 'ipay',
       'name': 'iPay (Sri Lanka)',
+      'shortName': 'iPay',
       'badge': 'Instant QR / App',
       'accountNumber': '0729642306',
       'accountName': 'SkyRush Official',
@@ -45,6 +60,7 @@ class _DepositSheetState extends State<DepositSheet> {
     {
       'id': 'upay',
       'name': 'UPay (Sri Lanka)',
+      'shortName': 'UPay',
       'badge': 'Mobile Transfer',
       'accountNumber': '0729642306',
       'accountName': 'SkyRush Official',
@@ -56,10 +72,11 @@ class _DepositSheetState extends State<DepositSheet> {
     {
       'id': 'bank_transfer',
       'name': 'Commercial',
+      'shortName': 'Bank',
       'badge': 'Disabled',
       'accountNumber': 'Disabled',
       'accountName': 'Commercial Bank',
-      'instructions': 'Commercial Bank deposits are temporarily disabled. Please use iPay or UPay.',
+      'instructions': 'Commercial Bank deposits are temporarily disabled. Please use Binance, iPay, or UPay.',
       'icon': Icons.account_balance,
       'color': const Color(0xFF64748B),
       'enabled': false,
@@ -326,13 +343,13 @@ class _DepositSheetState extends State<DepositSheet> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                ch['name'].toString().split(' ')[0],
+                                ch['shortName'] != null ? (ch['shortName'] as String) : ch['name'].toString().split(' ')[0],
                                 style: TextStyle(
                                   color: isEnabled
                                       ? (isSelected ? Colors.white : Colors.white70)
                                       : Colors.white38,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -382,38 +399,132 @@ class _DepositSheetState extends State<DepositSheet> {
                           fontSize: 14,
                         ),
                       ),
-                      InkWell(
-                        onTap: () => _copyToClipboard(
-                          currentChannel['accountNumber'] as String,
-                          'Account/Merchant ID',
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white10,
-                            borderRadius: BorderRadius.circular(6),
+                      if (currentChannel['id'] != 'binance_usdt')
+                        InkWell(
+                          onTap: () => _copyToClipboard(
+                            currentChannel['accountNumber'] as String,
+                            'Account/Merchant ID',
                           ),
-                          child: Row(
-                            children: const [
-                              Icon(Icons.copy, size: 12, color: Colors.white70),
-                              SizedBox(width: 4),
-                              Text('Copy', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                            ],
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white10,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.copy, size: 12, color: Colors.white70),
+                                SizedBox(width: 4),
+                                Text('Copy', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Account / ID: ${currentChannel['accountNumber']}',
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.5),
-                  ),
-                  Text(
-                    'Name: ${currentChannel['accountName']}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
+                  const SizedBox(height: 8),
+                  if (currentChannel['id'] == 'binance_usdt') ...[
+                    // Binance Pay ID
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Binance Pay ID (Instant)', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text(
+                                currentChannel['binancePayId'] as String,
+                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                              ),
+                            ],
+                          ),
+                          InkWell(
+                            onTap: () => _copyToClipboard(currentChannel['binancePayId'] as String, 'Binance Pay ID'),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: const [
+                                  Icon(Icons.copy, size: 12, color: Colors.black),
+                                  SizedBox(width: 4),
+                                  Text('Copy Pay ID', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // USDT TRC-20 Address
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('USDT Address (TRC-20)', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  currentChannel['usdtTrc20Address'] as String,
+                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () => _copyToClipboard(currentChannel['usdtTrc20Address'] as String, 'USDT TRC-20 Address'),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white10,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: const [
+                                  Icon(Icons.copy, size: 12, color: Colors.white70),
+                                  SizedBox(width: 4),
+                                  Text('Copy', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    Text(
+                      'Account / ID: ${currentChannel['accountNumber']}',
+                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                    ),
+                    Text(
+                      'Name: ${currentChannel['accountName']}',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
                   const Divider(color: Colors.white10, height: 16),
                   Text(
                     currentChannel['instructions'] as String,
@@ -445,9 +556,9 @@ class _DepositSheetState extends State<DepositSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected ? const Color(0xFF10B981) : const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF10B981) : Colors.white12,
+                        color: isSelected ? const Color(0xFF10B981) : Colors.white10,
                       ),
                     ),
                     child: Text(
@@ -490,17 +601,20 @@ class _DepositSheetState extends State<DepositSheet> {
               controller: _refController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'Transaction Reference / Slip ID',
+                labelText: _selectedChannel == 'binance_usdt' ? 'Binance Order ID / TxID / Link' : 'Transaction Reference / Slip ID',
                 labelStyle: const TextStyle(color: Colors.white54),
-                hintText: 'e.g. 7842109 or Bank Slip No',
+                hintText: _selectedChannel == 'binance_usdt' ? 'Paste Binance Order ID, TxID, or link' : 'e.g. 7842109 or Bank Slip No',
                 hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
-                prefixIcon: const Icon(Icons.receipt_long, color: Colors.white38),
+                prefixIcon: Icon(_selectedChannel == 'binance_usdt' ? Icons.tag : Icons.receipt_long, color: Colors.white38),
                 filled: true,
                 fillColor: const Color(0xFF1E293B),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                  borderSide: BorderSide(
+                    color: _selectedChannel == 'binance_usdt' ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8),
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
