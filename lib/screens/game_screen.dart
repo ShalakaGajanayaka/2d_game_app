@@ -22,6 +22,7 @@ import '../widgets/deposit_sheet.dart';
 import '../widgets/withdrawal_sheet.dart';
 import '../widgets/transaction_history_sheet.dart';
 import '../widgets/bet_history_sheet.dart';
+import '../widgets/currency_selector_sheet.dart';
 import '../models/live_bets_adapter.dart';
 import '../services/fullscreen_service.dart';
 
@@ -2754,6 +2755,47 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _showCurrencySelectorSheet() {
+    if (!_isLoggedIn || _authToken == null) {
+      _showAuthDialog();
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => CurrencySelectorSheet(
+        currentCurrency: _userCurrency,
+        currentBalance: _balance,
+        authToken: _authToken!,
+        serverBaseUrl: _getServerBaseUrl(),
+        onCurrencyChanged: (newCurrency, newBalance) {
+          setState(() {
+            _userCurrency = newCurrency;
+            _balance = newBalance;
+            if (_currentUser != null) {
+              _currentUser!['currency'] = newCurrency.code;
+              _currentUser!['balance'] = newBalance;
+            }
+            // Safely reset bet controls to match new currency
+            if (newCurrency.code == 'USD') {
+              _betAmount1 = 1.0;
+              _betAmount2 = 1.0;
+            } else if (newCurrency.code == 'INR') {
+              _betAmount1 = 100.0;
+              _betAmount2 = 100.0;
+            } else {
+              _betAmount1 = 100.0;
+              _betAmount2 = 100.0;
+            }
+            _betController1.text = _betAmount1.toStringAsFixed(0);
+            _betController2.text = _betAmount2.toStringAsFixed(0);
+          });
+        },
+      ),
+    );
+  }
+
   void _showDepositSheet() {
     if (!_isLoggedIn || _authToken == null) {
       _showAuthDialog();
@@ -3024,16 +3066,30 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF38BDF8).withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
-                                    ),
-                                    child: Text(
-                                      '${_userCurrency.flag} ${_userCurrency.code} (${_userCurrency.symbol})',
-                                      style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 10, fontWeight: FontWeight.bold),
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.of(context).pop();
+                                      _showCurrencySelectorSheet();
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF38BDF8).withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${_userCurrency.flag} ${_userCurrency.code} (${_userCurrency.symbol})',
+                                            style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 10, fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.arrow_drop_down, color: Color(0xFF38BDF8), size: 14),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
