@@ -525,32 +525,32 @@
           try {
             var now = ctx.currentTime;
 
-            // Main Jet Turbine Oscillator (Triangle - deep and warm)
+            // Main Jet Turbine Oscillator (Triangle - deep, warm, velvety fundamental)
             osc1 = ctx.createOscillator();
             osc1.type = 'triangle';
-            osc1.frequency.setValueAtTime(120, now);
+            osc1.frequency.setValueAtTime(110, now);
 
-            // Second Harmonic / Air Shimmer (Sine an octave higher)
+            // Second Harmonic / Air Shimmer (Sine - gentle, consonant harmonic layer)
             osc2 = ctx.createOscillator();
             osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(240, now);
+            osc2.frequency.setValueAtTime(146.6, now); // Warm perfect fourth consonant ratio (1.333x)
 
-            // Subtle LFO (Low Frequency Oscillator) for engine pulse / heartbeat tension
+            // Gentle LFO for peaceful breathing pulse (never rapid or frantic)
             lfo = ctx.createOscillator();
             lfo.type = 'sine';
-            lfo.frequency.setValueAtTime(2.2, now); // 2.2 Hz pulse
+            lfo.frequency.setValueAtTime(1.8, now); // Calm 1.8 Hz meditative rhythm
             lfoGain = ctx.createGain();
-            lfoGain.gain.setValueAtTime(10, now);
+            lfoGain.gain.setValueAtTime(4.0, now); // Soft +/- 4Hz vibrato depth
             lfo.connect(lfoGain);
             lfoGain.connect(osc1.frequency);
 
-            // Low-pass Filter to keep sound pleasant, smooth, and warm (no harsh frequencies)
+            // Low-pass Filter to keep sound pleasant, smooth, warm, and calm (no piercing highs)
             filter = ctx.createBiquadFilter();
             filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(260, now);
-            filter.Q.setValueAtTime(1.4, now);
+            filter.frequency.setValueAtTime(220, now);
+            filter.Q.setValueAtTime(1.0, now); // Gentle slope, zero acoustic ringing
 
-            // Flight Volume Gain (gentle ambient layer that doesn't drown out music)
+            // Flight Volume Gain (gentle ambient layer that coexists harmoniously with music)
             flightGain = ctx.createGain();
             var targetVol = isMuted ? 0 : 0.038;
             flightGain.gain.setValueAtTime(0.0001, now);
@@ -575,17 +575,26 @@
             var m = Math.max(1.0, parseFloat(mult) || 1.0);
             var now = audioCtx.currentTime;
 
-            // Pitch ascends smoothly with log2 of multiplier without masking music:
+            // Pitch ascends smoothly with soft asymptotic curve:
+            // Prevents high multiplier (>80x) from becoming sharp, whistling, or violently shaking
             var logMult = Math.log2(m);
-            var targetFreq = Math.min(460, 120 + (logMult * 55));
-            var targetFilter = Math.min(580, 260 + (logMult * 80));
-            var targetLfo = Math.min(6.5, 2.2 + (logMult * 0.7));
+            var curve = logMult / (logMult + 4.0); // Hill saturation curve [0.0 -> 1.0]
 
-            osc1.frequency.setTargetAtTime(targetFreq, now, 0.08);
-            osc2.frequency.setTargetAtTime(targetFreq * 1.5, now, 0.08);
-            filter.frequency.setTargetAtTime(targetFilter, now, 0.08);
+            var targetFreq = 110 + (curve * 130);   // Max 240Hz (warm cello register, never piercing)
+            var targetFilter = 220 + (curve * 120); // Max 340Hz (warm low-mid band, no harsh whistle)
+            var targetLfo = 1.8 + (curve * 0.9);    // Max 2.7Hz (peaceful breathing, no rapid wobble)
+
+            // As multiplier climbs, damp the wobble depth for a silky smooth, glassy glide
+            var targetLfoGain = Math.max(1.5, 4.0 - (curve * 2.2));
+
+            osc1.frequency.setTargetAtTime(targetFreq, now, 0.1);
+            osc2.frequency.setTargetAtTime(targetFreq * 1.333, now, 0.1);
+            filter.frequency.setTargetAtTime(targetFilter, now, 0.1);
             if (lfo) {
-              lfo.frequency.setTargetAtTime(targetLfo, now, 0.08);
+              lfo.frequency.setTargetAtTime(targetLfo, now, 0.1);
+            }
+            if (lfoGain) {
+              lfoGain.gain.setTargetAtTime(targetLfoGain, now, 0.1);
             }
 
             // Balanced audio mix: keep motivational background music steady and audible throughout flight
@@ -605,12 +614,14 @@
             var curOsc1 = osc1;
             var curOsc2 = osc2;
             var curLfo = lfo;
+            var curLfoGain = lfoGain;
             var curGain = flightGain;
             var curFilter = filter;
 
             osc1 = null;
             osc2 = null;
             lfo = null;
+            lfoGain = null;
             flightGain = null;
             filter = null;
 
@@ -640,6 +651,8 @@
                 if (curLfo) curLfo.stop();
                 if (curOsc1) curOsc1.disconnect();
                 if (curOsc2) curOsc2.disconnect();
+                if (curLfoGain) curLfoGain.disconnect();
+                if (curFilter) curFilter.disconnect();
                 if (curGain) curGain.disconnect();
               } catch (e) {}
             }, 300);
