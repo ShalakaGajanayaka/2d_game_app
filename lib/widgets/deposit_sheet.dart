@@ -44,6 +44,9 @@ class _DepositSheetState extends State<DepositSheet> {
       'color': const Color(0xFFF59E0B),
       'enabled': true,
     },
+    // --- TEMPORARILY DISABLED: Local Sri Lanka Payment Methods (iPay, UPay, Bank Transfer) ---
+    // The code is preserved below as requested. Uncomment to re-enable them in the future.
+    /*
     {
       'id': 'ipay',
       'name': 'iPay (Sri Lanka)',
@@ -80,6 +83,7 @@ class _DepositSheetState extends State<DepositSheet> {
       'color': const Color(0xFF64748B),
       'enabled': false,
     },
+    */
   ];
 
   List<double> get _quickAmounts {
