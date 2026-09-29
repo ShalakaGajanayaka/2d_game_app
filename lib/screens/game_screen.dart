@@ -73,6 +73,93 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   
   double _currentMultiplier = 1.0;
   final ValueNotifier<double> _multiplierNotifier = ValueNotifier<double>(1.0);
+
+  List<num> get _currencyQuickBets {
+    switch (_userCurrency.code.toUpperCase()) {
+      case 'USD':
+      case 'USDT':
+      case 'EUR':
+      case 'GBP':
+        return [1, 2, 5, 10, 20, 50, 100];
+      case 'AED':
+        return [5, 10, 20, 50, 100, 200, 500];
+      case 'INR':
+        return [20, 50, 100, 200, 500, 1000, 2000];
+      case 'LKR':
+      default:
+        return [50, 100, 200, 500, 1000, 2000, 5000];
+    }
+  }
+
+  double get _currencyMinBet {
+    switch (_userCurrency.code.toUpperCase()) {
+      case 'USD':
+      case 'USDT':
+      case 'EUR':
+      case 'GBP':
+        return 1.0;
+      case 'AED':
+        return 5.0;
+      case 'INR':
+        return 20.0;
+      case 'LKR':
+      default:
+        return 50.0;
+    }
+  }
+
+  double get _currencyMaxBet {
+    switch (_userCurrency.code.toUpperCase()) {
+      case 'USD':
+      case 'USDT':
+      case 'EUR':
+      case 'GBP':
+        return 500.0;
+      case 'AED':
+        return 2000.0;
+      case 'INR':
+        return 25000.0;
+      case 'LKR':
+      default:
+        return 20000.0;
+    }
+  }
+
+  double get _currencyDefaultBet {
+    switch (_userCurrency.code.toUpperCase()) {
+      case 'USD':
+      case 'USDT':
+      case 'EUR':
+      case 'GBP':
+        return 1.0;
+      case 'AED':
+        return 5.0;
+      case 'INR':
+        return 50.0;
+      case 'LKR':
+      default:
+        return 100.0;
+    }
+  }
+
+  double _getBetStep(double currentBet) {
+    final cur = _userCurrency.code.toUpperCase();
+    if (cur == 'USD' || cur == 'USDT' || cur == 'EUR' || cur == 'GBP') {
+      return currentBet >= 50 ? 10.0 : (currentBet >= 10 ? 5.0 : 1.0);
+    } else if (cur == 'AED') {
+      return currentBet >= 100 ? 20.0 : 5.0;
+    } else {
+      return currentBet >= 1000 ? 100.0 : (currentBet >= 200 ? 50.0 : 10.0);
+    }
+  }
+
+  void _syncBetAmountsToCurrency() {
+    final defaultBet = _currencyDefaultBet;
+    _betAmount1 = defaultBet;
+    _betAmount2 = defaultBet;
+    _betController1.text = _betAmount1 % 1 == 0 ? _betAmount1.toInt().toString() : _betAmount1.toStringAsFixed(2);
+    _betController2.text = _betAmount2 % 1 == 0 ? _betAmount2.toInt().toString() : _betAmount2.toStringAsFixed(2);
+  }
   final List<double> _history = [];
   final bool _showHistoryBar = false; // Set to true to show history bar again
   List<Map<String, dynamic>> _liveBets = [];
@@ -273,6 +360,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _balance = (_currentUser!['balance'] as num).toDouble();
           if (_currentUser!['currency'] != null) {
             _userCurrency = Currency.getByCode(_currentUser!['currency']);
+            if (userProfile['activeBets'] == null ||
+                (userProfile['activeBets']['slot1'] == null && userProfile['activeBets']['slot2'] == null)) {
+              _syncBetAmountsToCurrency();
+            }
           }
 
           // Restore any active bets in case user reloaded while countdown or flight was active
@@ -330,6 +421,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _currentUser = Map<String, dynamic>.from(data['user']);
           _balance = (_currentUser!['balance'] as num).toDouble();
           _userCurrency = Currency.getByCode(_currentUser!['currency']);
+          _syncBetAmountsToCurrency();
         });
         return {'success': true, 'user': data['user']};
       } else {
@@ -371,6 +463,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _currentUser = Map<String, dynamic>.from(data['user']);
           _balance = (_currentUser!['balance'] as num).toDouble();
           _userCurrency = Currency.getByCode(_currentUser!['currency']);
+          _syncBetAmountsToCurrency();
         });
         return {'success': true, 'user': data['user']};
       } else {
@@ -1207,13 +1300,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       onTap: canChangeAmount
                           ? () {
                               setState(() {
-                                if (betAmount > 50.0) {
-                                  final double step = betAmount >= 1000 ? 100.0 : (betAmount >= 200 ? 50.0 : 10.0);
+                                final double minB = _currencyMinBet;
+                                final double maxB = _currencyMaxBet;
+                                if (betAmount > minB) {
+                                  final double step = _getBetStep(betAmount);
                                   if (betIndex == 1) {
-                                    _betAmount1 = (_betAmount1 - step).clamp(50.0, 20000.0);
+                                    _betAmount1 = (_betAmount1 - step).clamp(minB, maxB);
                                     _betController1.text = _betAmount1 % 1 == 0 ? _betAmount1.toInt().toString() : _betAmount1.toStringAsFixed(2);
                                   } else {
-                                    _betAmount2 = (_betAmount2 - step).clamp(50.0, 20000.0);
+                                    _betAmount2 = (_betAmount2 - step).clamp(minB, maxB);
                                     _betController2.text = _betAmount2 % 1 == 0 ? _betAmount2.toInt().toString() : _betAmount2.toStringAsFixed(2);
                                   }
                                 }
@@ -1246,8 +1341,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         onChanged: (val) {
                           final parsed = double.tryParse(val);
                           if (parsed != null && parsed > 0) {
-                            if (betIndex == 1) _betAmount1 = parsed.clamp(1.0, 20000.0);
-                            else _betAmount2 = parsed.clamp(1.0, 20000.0);
+                            final double minB = _currencyMinBet;
+                            final double maxB = _currencyMaxBet;
+                            if (betIndex == 1) _betAmount1 = parsed.clamp(minB, maxB);
+                            else _betAmount2 = parsed.clamp(minB, maxB);
                           }
                         },
                       ),
@@ -1258,12 +1355,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       onTap: canChangeAmount
                           ? () {
                               setState(() {
-                                final double step = betAmount >= 1000 ? 100.0 : (betAmount >= 200 ? 50.0 : 10.0);
+                                final double minB = _currencyMinBet;
+                                final double maxB = _currencyMaxBet;
+                                final double step = _getBetStep(betAmount);
                                 if (betIndex == 1) {
-                                  _betAmount1 = (_betAmount1 + step).clamp(50.0, 20000.0);
+                                  _betAmount1 = (_betAmount1 + step).clamp(minB, maxB);
                                   _betController1.text = _betAmount1 % 1 == 0 ? _betAmount1.toInt().toString() : _betAmount1.toStringAsFixed(2);
                                 } else {
-                                  _betAmount2 = (_betAmount2 + step).clamp(50.0, 20000.0);
+                                  _betAmount2 = (_betAmount2 + step).clamp(minB, maxB);
                                   _betController2.text = _betAmount2 % 1 == 0 ? _betAmount2.toInt().toString() : _betAmount2.toStringAsFixed(2);
                                 }
                               });
@@ -1285,12 +1384,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   child: Row(
-                    children: (_userCurrency.code == 'LKR'
-                            ? [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
-                            : (_userCurrency.code == 'INR'
-                                ? [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
-                                : [1, 2, 5, 10, 20, 50, 100]))
-                        .map((amount) {
+                    children: _currencyQuickBets.map((amount) {
                       final bool isSelected = (betAmount == amount.toDouble());
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 3.5),
@@ -2777,19 +2871,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _currentUser!['currency'] = newCurrency.code;
               _currentUser!['balance'] = newBalance;
             }
-            // Safely reset bet controls to match new currency
-            if (newCurrency.code == 'USD') {
-              _betAmount1 = 1.0;
-              _betAmount2 = 1.0;
-            } else if (newCurrency.code == 'INR') {
-              _betAmount1 = 100.0;
-              _betAmount2 = 100.0;
-            } else {
-              _betAmount1 = 100.0;
-              _betAmount2 = 100.0;
-            }
-            _betController1.text = _betAmount1.toStringAsFixed(0);
-            _betController2.text = _betAmount2.toStringAsFixed(0);
+            _syncBetAmountsToCurrency();
           });
         },
       ),
