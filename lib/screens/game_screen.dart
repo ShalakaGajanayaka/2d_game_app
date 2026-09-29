@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../models/game_state.dart';
 import '../models/currency.dart';
@@ -144,6 +145,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     _initSocket();
     _detectGeoCurrency();
+    _tryAutoLogin();
   }
 
   String _getServerBaseUrl() {
@@ -237,6 +239,59 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     // Deprecated: Betting, payouts, and balances are 100% server-authoritative
   }
 
+  Future<void> _tryAutoLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedToken = prefs.getString('skyrush_auth_token');
+      if (savedToken == null || savedToken.isEmpty) return;
+
+      final url = Uri.parse('${_getServerBaseUrl()}/auth/profile');
+      final res = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $savedToken',
+        },
+      );
+
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        final userProfile = jsonDecode(res.body);
+        setState(() {
+          _isLoggedIn = true;
+          _authToken = savedToken;
+          _currentUser = Map<String, dynamic>.from(userProfile);
+          _balance = (_currentUser!['balance'] as num).toDouble();
+          if (_currentUser!['currency'] != null) {
+            _userCurrency = Currency.getByCode(_currentUser!['currency']);
+          }
+
+          // Restore any active bets in case user reloaded while countdown or flight was active
+          if (userProfile['activeBets'] != null) {
+            final slot1 = userProfile['activeBets']['slot1'];
+            if (slot1 != null) {
+              _isBetPlaced1 = true;
+              _betAmount1 = (slot1['amount'] as num).toDouble();
+              _betController1.text = _betAmount1 % 1 == 0 ? _betAmount1.toInt().toString() : _betAmount1.toStringAsFixed(2);
+            }
+            final slot2 = userProfile['activeBets']['slot2'];
+            if (slot2 != null) {
+              _isBetPlaced2 = true;
+              _betAmount2 = (slot2['amount'] as num).toDouble();
+              _betController2.text = _betAmount2 % 1 == 0 ? _betAmount2.toInt().toString() : _betAmount2.toStringAsFixed(2);
+            }
+          }
+        });
+        debugPrint('[Auth] Auto-login successfully restored session for ${_currentUser?['username']} (Balance: $_balance)');
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        debugPrint('[Auth] Saved token expired or invalid. Clearing session.');
+        await prefs.remove('skyrush_auth_token');
+      }
+    } catch (e) {
+      debugPrint('[Auth] Auto-login error: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> _loginUser(String identifier, String password) async {
     try {
       final url = Uri.parse('${_getServerBaseUrl()}/auth/login');
@@ -251,9 +306,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       );
       final data = jsonDecode(res.body);
       if (res.statusCode == 200 || res.statusCode == 201) {
+        final token = data['token']?.toString();
+        if (token != null) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('skyrush_auth_token', token);
+          } catch (e) {
+            debugPrint('[Auth] Error persisting token: $e');
+          }
+        }
         setState(() {
           _isLoggedIn = true;
-          _authToken = data['token'];
+          _authToken = token;
           _currentUser = Map<String, dynamic>.from(data['user']);
           _balance = (_currentUser!['balance'] as num).toDouble();
           _userCurrency = Currency.getByCode(_currentUser!['currency']);
@@ -283,9 +347,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       );
       final data = jsonDecode(res.body);
       if (res.statusCode == 200 || res.statusCode == 201) {
+        final token = data['token']?.toString();
+        if (token != null) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('skyrush_auth_token', token);
+          } catch (e) {
+            debugPrint('[Auth] Error persisting token: $e');
+          }
+        }
         setState(() {
           _isLoggedIn = true;
-          _authToken = data['token'];
+          _authToken = token;
           _currentUser = Map<String, dynamic>.from(data['user']);
           _balance = (_currentUser!['balance'] as num).toDouble();
           _userCurrency = Currency.getByCode(_currentUser!['currency']);
@@ -338,9 +411,18 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       );
       final data = jsonDecode(res.body);
       if (res.statusCode == 200 || res.statusCode == 201) {
+        final token = data['token']?.toString();
+        if (token != null) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('skyrush_auth_token', token);
+          } catch (e) {
+            debugPrint('[Auth] Error persisting token: $e');
+          }
+        }
         setState(() {
           _isLoggedIn = true;
-          _authToken = data['token'];
+          _authToken = token;
           _currentUser = Map<String, dynamic>.from(data['user']);
           _balance = (_currentUser!['balance'] as num).toDouble();
           _userCurrency = Currency.getByCode(_currentUser!['currency']);
@@ -356,6 +438,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   void _logoutUser() {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('skyrush_auth_token');
+    }).catchError((_) {});
+
     setState(() {
       _isLoggedIn = false;
       _authToken = null;
