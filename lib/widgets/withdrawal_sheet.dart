@@ -27,37 +27,11 @@ class WithdrawalSheet extends StatefulWidget {
 class _WithdrawalSheetState extends State<WithdrawalSheet> {
   final TextEditingController _amountController = TextEditingController();
   
-  // Binance / USDT Controllers (ACTIVE)
+  // Binance / USDT Controllers (Single Active Payout Method)
   final TextEditingController _binancePayIdController = TextEditingController();
   final TextEditingController _binanceNicknameController = TextEditingController();
 
-  /* 
-  // TEMPORARILY COMMENTED OUT CHANNELS: BANK, IPAY, UPAY
-  final TextEditingController _bankNameController = TextEditingController();
-  final TextEditingController _branchNameController = TextEditingController();
-  final TextEditingController _bankAccNumController = TextEditingController();
-  final TextEditingController _bankAccHolderController = TextEditingController();
-  final TextEditingController _ipayMobileController = TextEditingController();
-  final TextEditingController _ipayHolderController = TextEditingController();
-  final TextEditingController _upayMobileController = TextEditingController();
-  final TextEditingController _upayHolderController = TextEditingController();
-
-  final List<String> _sriLankaBanks = [
-    'Commercial Bank of Ceylon',
-    'Bank of Ceylon (BOC)',
-    'People\'s Bank',
-    'Hatton National Bank (HNB)',
-    'Sampath Bank',
-    'Seylan Bank',
-    'Nations Trust Bank (NTB)',
-    'DFCC Bank',
-    'National Development Bank (NDB)',
-    'Pan Asia Bank',
-  ];
-  */
-
-  // Active Withdrawal Method: BINANCE only for now
-  final String _selectedMethod = 'binance_usdt'; // 'binance_usdt' (temporarily commented: 'BANK', 'IPAY', 'UPAY')
+  final String _selectedMethod = 'binance_usdt';
   bool _isSubmitting = false;
   String? _errorMessage;
   bool _saveDetailsCheckbox = true;
@@ -137,7 +111,6 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
         if (mounted && details != null && details is Map) {
           setState(() {
-            // Load Binance details
             if (details['BINANCE'] != null) {
               final binance = details['BINANCE'];
               _binancePayIdController.text = binance['binancePayId'] ?? binance['accountNumber'] ?? '';
@@ -147,27 +120,6 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               _binancePayIdController.text = binance['binancePayId'] ?? binance['accountNumber'] ?? '';
               _binanceNicknameController.text = binance['nickname'] ?? binance['accountHolder'] ?? '';
             }
-
-            /*
-            // TEMPORARILY COMMENTED OUT DETAIL LOADING:
-            if (details['BANK'] != null) {
-              final bank = details['BANK'];
-              _bankNameController.text = bank['bankName'] ?? '';
-              _bankAccNumController.text = bank['accountNumber'] ?? '';
-              _bankAccHolderController.text = bank['accountHolder'] ?? '';
-              _branchNameController.text = bank['branchName'] ?? '';
-            }
-            if (details['IPAY'] != null) {
-              final ipay = details['IPAY'];
-              _ipayMobileController.text = ipay['mobileNumber'] ?? '';
-              _ipayHolderController.text = ipay['accountHolder'] ?? '';
-            }
-            if (details['UPAY'] != null) {
-              final upay = details['UPAY'];
-              _upayMobileController.text = upay['mobileNumber'] ?? '';
-              _upayHolderController.text = upay['accountHolder'] ?? '';
-            }
-            */
           });
         }
       }
@@ -182,18 +134,6 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
     _amountController.dispose();
     _binancePayIdController.dispose();
     _binanceNicknameController.dispose();
-
-    /*
-    _bankNameController.dispose();
-    _branchNameController.dispose();
-    _bankAccNumController.dispose();
-    _bankAccHolderController.dispose();
-    _ipayMobileController.dispose();
-    _ipayHolderController.dispose();
-    _upayMobileController.dispose();
-    _upayHolderController.dispose();
-    */
-
     super.dispose();
   }
 
@@ -280,7 +220,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         if (!mounted) return;
-        Navigator.of(context).pop(); // close sheet
+        Navigator.of(context).pop();
 
         widget.onWithdrawalSubmitted?.call();
 
@@ -346,7 +286,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F172A),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
                   ),
                   child: const Text(
                     '🔒 Funds are placed in secure escrow. SkyRush Admin will verify and dispatch your USDT transfer within 15–30 minutes.',
@@ -443,9 +383,9 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withOpacity(0.15),
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
                     ),
                     child: Text(
                       'Avail: ${widget.currency.symbol}${widget.currentBalance.toStringAsFixed(2)}',
@@ -460,66 +400,51 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               ),
               const SizedBox(height: 16),
 
-              // Payout Method Selector: Binance Active (Others Temporarily Commented Out)
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+              // Active Payout Method Banner: Binance
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFFF59E0B),
-                          width: 1.5,
-                        ),
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.currency_bitcoin, color: Color(0xFFFBBF24), size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'Binance / USDT (Crypto)',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Fast Instant Payout • Min: 7 USDT',
-                                  style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11),
-                                ),
-                              ],
+                      child: const Icon(Icons.currency_bitcoin, color: Color(0xFFFBBF24), size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Binance / USDT (Crypto)',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const Icon(Icons.check_circle, color: Color(0xFFFBBF24), size: 20),
+                          SizedBox(height: 2),
+                          Text(
+                            'Fast Instant Payout • Min: 7 USDT',
+                            style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-
-                  /*
-                  // TEMPORARILY COMMENTED OUT METHODS (Bank Transfer, iPay, UPay):
-                  // _buildMethodTab('BANK', 'Bank Transfer', Icons.account_balance, const Color(0xFF3B82F6)),
-                  // const SizedBox(width: 8),
-                  // _buildMethodTab('IPAY', 'iPay LK', Icons.qr_code_scanner, const Color(0xFF10B981)),
-                  // const SizedBox(width: 8),
-                  // _buildMethodTab('UPAY', 'UPay LK', Icons.phone_android, const Color(0xFF8B5CF6)),
-                  */
-                ],
+                    const Icon(Icons.check_circle, color: Color(0xFFFBBF24), size: 20),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -605,8 +530,8 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isBelowMin
-                        ? const Color(0xFFEF4444).withOpacity(0.5)
-                        : const Color(0xFFF59E0B).withOpacity(0.35),
+                        ? const Color(0xFFEF4444).withValues(alpha: 0.5)
+                        : const Color(0xFFF59E0B).withValues(alpha: 0.35),
                   ),
                 ),
                 child: Row(
@@ -666,7 +591,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFFF59E0B).withOpacity(0.25)
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
                               : const Color(0xFF1E293B),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
@@ -717,7 +642,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F172A),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.2)),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -733,16 +658,6 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                   ],
                 ),
               ),
-
-              /*
-              // TEMPORARILY COMMENTED OUT FORM FIELDS (Bank / iPay / UPay):
-              if (_selectedMethod == 'BANK') ...[
-                // Bank Details Form...
-              ] else if (_selectedMethod == 'IPAY') ...[
-                // iPay Form...
-              ]
-              */
-
               const SizedBox(height: 6),
 
               // Save Details Checkbox
@@ -779,7 +694,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -801,9 +716,9 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.15),
+                    color: Colors.red.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withOpacity(0.4)),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
