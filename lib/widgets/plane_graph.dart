@@ -25,12 +25,12 @@ class PlaneGraph extends StatelessWidget {
         double h = constraints.maxHeight;
         double t = progress;
 
-        // P0: Runway start (bottom left)
-        // P1: Smooth horizontal ground acceleration
+        // P0: Runway origin (exact bottom-left corner of the box)
+        // P1: Smooth horizontal ground acceleration along bottom runway
         // P2: Moderate upward curve passing comfortably below central multiplier text
         // P3: High altitude cruise plateau in the upper-right sky
-        final p0 = Offset(0.0, h * 0.94);
-        final p1 = Offset(w * 0.28, h * 0.88);
+        final p0 = Offset(0.0, h);
+        final p1 = Offset(w * 0.28, h);
         final p2 = Offset(w * 0.58, h * 0.54);
         final p3 = Offset(w * 0.84, h * 0.22);
 
@@ -54,7 +54,7 @@ class PlaneGraph extends StatelessWidget {
         final double airborneFactor = math.min(1.0, t * 2.5);
         final double floatOffset = math.sin(multiplier * 2.2) * 2.5 * airborneFactor;
         final double finalX = posX;
-        final double finalY = (posY + floatOffset).clamp(h * 0.16, h * 0.96);
+        final double finalY = (posY + floatOffset).clamp(h * 0.16, h * 0.98);
 
         return Stack(
           clipBehavior: Clip.none,
@@ -101,9 +101,9 @@ class GraphPainter extends CustomPainter {
     double w = size.width;
     double h = size.height;
 
-    // Fixed control points for authentic ski-jump flight arc
-    final p0 = Offset(0.0, h * 0.94);
-    final p1 = Offset(w * 0.28, h * 0.88);
+    // Fixed control points anchored to bottom-left corner
+    final p0 = Offset(0.0, h);
+    final p1 = Offset(w * 0.28, h);
     final p2 = Offset(w * 0.58, h * 0.54);
     final p3 = Offset(w * 0.84, h * 0.22);
 
