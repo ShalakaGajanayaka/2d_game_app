@@ -332,13 +332,18 @@
           musicGain.connect(ctx.destination);
         }
 
-        // Motivational chill cyberpunk lounge chords: Cm -> Ab -> Eb -> Bb/Gm
+        // Upbeat Aviator-Style Arcade House Groove (F Major / D Minor - 124 BPM)
+        // High-energy, joyful, triumphant progression: F -> C -> Dm -> Bb
         var chordData = [
-          { bass: 65.41, pad: [130.81, 196.00, 311.13, 587.33] }, // C2 & Cm9
-          { bass: 51.91, pad: [103.83, 155.56, 261.63, 392.00] }, // Ab1 & AbMaj7
-          { bass: 77.78, pad: [155.56, 233.08, 311.13, 466.16] }, // Eb2 & EbMaj7
-          { bass: 58.27, pad: [116.54, 174.61, 293.66, 349.23] }, // Bb1 & BbAdd9
+          { bass: 87.31, pad: [174.61, 220.00, 261.63, 329.63], arps: [349.23, 440.00, 523.25, 659.25] }, // F2 & FMaj7
+          { bass: 65.41, pad: [196.00, 261.63, 329.63, 392.00], arps: [392.00, 523.25, 659.25, 783.99] }, // C2 & C(add9)
+          { bass: 73.42, pad: [174.61, 220.00, 293.66, 349.23], arps: [293.66, 349.23, 440.00, 587.33] }, // D2 & Dm7
+          { bass: 58.27, pad: [174.61, 233.08, 293.66, 349.23], arps: [233.08, 293.66, 349.23, 466.16] }, // Bb1 & BbMaj
         ];
+
+        // 124 BPM Dance/Casino Tempo: 4 beats per bar, 0.484s per beat (1.936s per bar)
+        var BEAT_DUR = 0.484;
+        var BAR_DUR = BEAT_DUR * 4;
 
         function playBar() {
           if (!isMusicPlaying || !audioCtx) return;
@@ -347,107 +352,183 @@
             var current = chordData[chordIndex % chordData.length];
             chordIndex++;
 
-            // 1. Warm Cyber Lounge Pad
+            var activeNodes = [];
+
+            // 1. Bright Upbeat Synth Chords (F-Major Pop Arcade Vibe)
             var chordFilter = audioCtx.createBiquadFilter();
             chordFilter.type = 'lowpass';
-            chordFilter.frequency.setValueAtTime(450, now);
-            chordFilter.frequency.linearRampToValueAtTime(620, now + 1.5);
-            chordFilter.frequency.linearRampToValueAtTime(400, now + 3.1);
+            chordFilter.frequency.setValueAtTime(650, now);
+            chordFilter.frequency.linearRampToValueAtTime(850, now + 0.9);
+            chordFilter.frequency.linearRampToValueAtTime(550, now + BAR_DUR);
 
             var chordGain = audioCtx.createGain();
             chordGain.gain.setValueAtTime(0.0001, now);
-            chordGain.gain.linearRampToValueAtTime(0.18, now + 0.6); // Warm audible pad
-            chordGain.gain.linearRampToValueAtTime(0.14, now + 2.4);
-            chordGain.gain.linearRampToValueAtTime(0.0001, now + 3.4);
+            chordGain.gain.linearRampToValueAtTime(0.13, now + 0.15);
+            chordGain.gain.linearRampToValueAtTime(0.10, now + (BAR_DUR * 0.8));
+            chordGain.gain.linearRampToValueAtTime(0.0001, now + BAR_DUR + 0.05);
 
             chordFilter.connect(chordGain);
             chordGain.connect(musicGain);
 
-            var activeNodes = [];
             for (var i = 0; i < current.pad.length; i++) {
               var osc = audioCtx.createOscillator();
-              osc.type = i === 0 ? 'sine' : 'triangle';
+              osc.type = i % 2 === 0 ? 'sine' : 'triangle';
               osc.frequency.setValueAtTime(current.pad[i], now);
-              osc.detune.setValueAtTime((i % 2 === 0 ? 3.5 : -3.5), now);
+              osc.detune.setValueAtTime((i % 2 === 0 ? 3.0 : -3.0), now);
               osc.connect(chordFilter);
               osc.start(now);
-              osc.stop(now + 3.4);
+              osc.stop(now + BAR_DUR + 0.1);
               activeNodes.push(osc);
             }
 
-            // 2. Groovy Motivational Bassline (4 driving beats per bar: 0.0s, 0.8s, 1.6s, 2.4s)
-            var bassNotes = [
-              current.bass,
-              current.bass,
-              current.bass * 1.5, // 5th
-              current.bass
-            ];
-
+            // 2. Energetic 124 BPM 4-on-the-Floor Beat & Bouncy Funky Bassline
             for (var b = 0; b < 4; b++) {
               (function(beatIdx) {
-                var bTime = now + (beatIdx * 0.8);
-                var bassOsc = audioCtx.createOscillator();
-                var bassGain = audioCtx.createGain();
-                var bFilter = audioCtx.createBiquadFilter();
+                var bTime = now + (beatIdx * BEAT_DUR);
 
-                bassOsc.type = 'triangle';
-                bassOsc.frequency.setValueAtTime(bassNotes[beatIdx], bTime);
+                // --- A. Club Kick Drum (Punchy 160Hz -> 48Hz pitch-dive thump on EVERY beat) ---
+                var kickOsc = audioCtx.createOscillator();
+                var kickGain = audioCtx.createGain();
+                kickOsc.type = 'sine';
+                kickOsc.frequency.setValueAtTime(160, bTime);
+                kickOsc.frequency.exponentialRampToValueAtTime(48, bTime + 0.065); // Fast punchy drop
 
-                bFilter.type = 'lowpass';
-                bFilter.frequency.setValueAtTime(320, bTime);
-                bFilter.frequency.exponentialRampToValueAtTime(90, bTime + 0.35);
+                kickGain.gain.setValueAtTime(0.26, bTime);
+                kickGain.gain.exponentialRampToValueAtTime(0.0001, bTime + 0.20);
 
-                bassGain.gain.setValueAtTime(0.0001, bTime);
-                bassGain.gain.linearRampToValueAtTime(0.28, bTime + 0.02); // Punchy audible bass
-                bassGain.gain.exponentialRampToValueAtTime(0.0001, bTime + 0.55);
+                kickOsc.connect(kickGain);
+                kickGain.connect(musicGain);
+                kickOsc.start(bTime);
+                kickOsc.stop(bTime + 0.22);
+                activeNodes.push(kickOsc);
+                activeNodes.push(kickGain);
 
-                bassOsc.connect(bFilter);
-                bFilter.connect(bassGain);
-                bassGain.connect(musicGain);
+                // --- B. Bouncy Funky Bass (16th-note syncopated groove on beat + offbeat) ---
+                var bassTimes = [bTime, bTime + (BEAT_DUR * 0.5)];
+                var bassFreqs = [current.bass, current.bass * 1.5]; // root and energetic 5th bounce
+                for (var bi = 0; bi < 2; bi++) {
+                  var subTime = bassTimes[bi];
+                  var subOsc = audioCtx.createOscillator();
+                  var subGain = audioCtx.createGain();
+                  var subFilter = audioCtx.createBiquadFilter();
 
-                bassOsc.start(bTime);
-                bassOsc.stop(bTime + 0.6);
-                activeNodes.push(bassOsc);
+                  subOsc.type = 'triangle';
+                  subOsc.frequency.setValueAtTime(bassFreqs[bi], subTime);
 
-                // Subtle offbeat high-hat/shaker (0.4s after each bass beat)
-                var hatTime = bTime + 0.4;
-                var noiseBuffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.05), audioCtx.sampleRate);
-                var outData = noiseBuffer.getChannelData(0);
-                for (var s = 0; s < outData.length; s++) {
-                  outData[s] = (Math.random() * 2 - 1) * Math.exp(-s / (outData.length * 0.2));
+                  subFilter.type = 'lowpass';
+                  subFilter.frequency.setValueAtTime(320, subTime);
+                  subFilter.frequency.exponentialRampToValueAtTime(90, subTime + 0.18);
+
+                  subGain.gain.setValueAtTime(0.0001, subTime);
+                  subGain.gain.linearRampToValueAtTime(0.20, subTime + 0.02);
+                  subGain.gain.exponentialRampToValueAtTime(0.0001, subTime + 0.22);
+
+                  subOsc.connect(subFilter);
+                  subFilter.connect(subGain);
+                  subGain.connect(musicGain);
+
+                  subOsc.start(subTime);
+                  subOsc.stop(subTime + 0.24);
+                  activeNodes.push(subOsc);
+                  activeNodes.push(subFilter);
+                  activeNodes.push(subGain);
+                }
+
+                // --- C. Snappy Handclap / Snare on Beats 2 and 4 (beatIdx 1 and 3) ---
+                if (beatIdx === 1 || beatIdx === 3) {
+                  var snareLen = Math.floor(audioCtx.sampleRate * 0.10);
+                  var snareBuffer = audioCtx.createBuffer(1, snareLen, audioCtx.sampleRate);
+                  var snareData = snareBuffer.getChannelData(0);
+                  for (var sn = 0; sn < snareLen; sn++) {
+                    snareData[sn] = (Math.random() * 2 - 1) * Math.exp(-sn / (snareLen * 0.25));
+                  }
+                  var snareSource = audioCtx.createBufferSource();
+                  snareSource.buffer = snareBuffer;
+
+                  var snareFilter = audioCtx.createBiquadFilter();
+                  snareFilter.type = 'bandpass';
+                  snareFilter.frequency.setValueAtTime(1500, bTime);
+                  snareFilter.Q.setValueAtTime(1.6, bTime);
+
+                  var snareGain = audioCtx.createGain();
+                  snareGain.gain.setValueAtTime(0.11, bTime);
+                  snareGain.gain.exponentialRampToValueAtTime(0.0001, bTime + 0.10);
+
+                  snareSource.connect(snareFilter);
+                  snareFilter.connect(snareGain);
+                  snareGain.connect(musicGain);
+
+                  snareSource.start(bTime);
+                  snareSource.stop(bTime + 0.11);
+                  activeNodes.push(snareSource);
+                  activeNodes.push(snareFilter);
+                  activeNodes.push(snareGain);
+                }
+
+                // --- D. Crisp Sizzling Hi-Hat (on the "and" of every beat) ---
+                var hatTime = bTime + (BEAT_DUR * 0.5);
+                var hatLen = Math.floor(audioCtx.sampleRate * 0.035);
+                var hatBuffer = audioCtx.createBuffer(1, hatLen, audioCtx.sampleRate);
+                var hatData = hatBuffer.getChannelData(0);
+                for (var h = 0; h < hatLen; h++) {
+                  hatData[h] = (Math.random() * 2 - 1) * Math.exp(-h / (hatLen * 0.2));
                 }
                 var hatSource = audioCtx.createBufferSource();
-                hatSource.buffer = noiseBuffer;
+                hatSource.buffer = hatBuffer;
+
                 var hatFilter = audioCtx.createBiquadFilter();
                 hatFilter.type = 'highpass';
-                hatFilter.frequency.setValueAtTime(6500, hatTime);
+                hatFilter.frequency.setValueAtTime(8000, hatTime);
+
                 var hatGain = audioCtx.createGain();
-                hatGain.gain.setValueAtTime(0.045, hatTime);
-                hatGain.gain.exponentialRampToValueAtTime(0.0001, hatTime + 0.048);
+                hatGain.gain.setValueAtTime(0.06, hatTime);
+                hatGain.gain.exponentialRampToValueAtTime(0.0001, hatTime + 0.032);
 
                 hatSource.connect(hatFilter);
                 hatFilter.connect(hatGain);
                 hatGain.connect(musicGain);
+
                 hatSource.start(hatTime);
-                hatSource.stop(hatTime + 0.05);
+                hatSource.stop(hatTime + 0.035);
                 activeNodes.push(hatSource);
+                activeNodes.push(hatFilter);
+                activeNodes.push(hatGain);
+
+                // --- E. Sparkling Arcade Casino Pluck (Cheerful arpeggio notes) ---
+                var arpTime = bTime + (BEAT_DUR * 0.25);
+                var arpOsc = audioCtx.createOscillator();
+                var arpGain = audioCtx.createGain();
+                arpOsc.type = 'sine';
+                arpOsc.frequency.setValueAtTime(current.arps[beatIdx % current.arps.length], arpTime);
+
+                arpGain.gain.setValueAtTime(0.0001, arpTime);
+                arpGain.gain.linearRampToValueAtTime(0.06, arpTime + 0.015);
+                arpGain.gain.exponentialRampToValueAtTime(0.0001, arpTime + 0.16);
+
+                arpOsc.connect(arpGain);
+                arpGain.connect(musicGain);
+
+                arpOsc.start(arpTime);
+                arpOsc.stop(arpTime + 0.18);
+                activeNodes.push(arpOsc);
+                activeNodes.push(arpGain);
               })(b);
             }
 
             setTimeout(function() {
               try {
                 for (var j = 0; j < activeNodes.length; j++) {
-                  activeNodes[j].disconnect();
+                  if (activeNodes[j].disconnect) activeNodes[j].disconnect();
                 }
                 chordFilter.disconnect();
                 chordGain.disconnect();
               } catch (e) {}
-            }, 3600);
+            }, Math.floor(BAR_DUR * 1000) + 300);
           } catch (e) {}
         }
 
         playBar();
-        musicInterval = setInterval(playBar, 3200);
+        musicInterval = setInterval(playBar, Math.floor(BAR_DUR * 1000));
       }
 
       function stopMusic() {
