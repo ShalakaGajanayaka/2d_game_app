@@ -57,6 +57,21 @@ class _DepositSheetState extends State<DepositSheet> {
     );
   }
 
+  static const Map<String, double> _platformExchangeRates = {
+    'USD': 1.0,
+    'USDT': 1.0,
+    'LKR': 300.0,
+    'INR': 85.0,
+    'EUR': 0.92,
+    'GBP': 0.79,
+    'AED': 3.67,
+  };
+
+  double get _exchangeRate {
+    final code = widget.currency.code.toUpperCase();
+    return _platformExchangeRates[code] ?? 1.0;
+  }
+
   List<double> get _quickAmounts {
     return [5.0, 10.0, 25.0, 50.0, 100.0];
   }
@@ -65,10 +80,16 @@ class _DepositSheetState extends State<DepositSheet> {
   void initState() {
     super.initState();
     _amountController.text = _quickAmounts[1].toStringAsFixed(0);
+    _amountController.addListener(_onAmountChanged);
+  }
+
+  void _onAmountChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     _refController.dispose();
     super.dispose();
@@ -610,6 +631,30 @@ class _DepositSheetState extends State<DepositSheet> {
                 ),
               ),
             ),
+            if (widget.currency.code.toUpperCase() != 'USD' && widget.currency.code.toUpperCase() != 'USDT') ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Wallet Credit in ${widget.currency.code}:',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      '≈ ${widget.currency.symbol} ${((double.tryParse(_amountController.text.trim()) ?? 0.0) * _exchangeRate).toStringAsFixed(2)}',
+                      style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
 
             // Binance Order ID / TxID Input

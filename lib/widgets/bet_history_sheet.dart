@@ -186,7 +186,7 @@ class _BetHistorySheetState extends State<BetHistorySheet> {
         
         final isWin = winAmount > 0;
         final date = DateTime.tryParse(item['createdAt'] ?? '') ?? DateTime.now();
-        final currency = item['currency'] ?? 'LKR';
+        final currency = item['currency'] ?? 'USD';
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),

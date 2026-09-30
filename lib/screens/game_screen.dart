@@ -456,7 +456,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         body: jsonEncode({
           if (isEmail) 'email': identifier.trim() else 'username': identifier.trim(),
           'password': password,
-          'currency': currency ?? 'LKR',
+          'currency': currency ?? (_userCurrency.code.isNotEmpty ? _userCurrency.code : 'USD'),
         }),
       );
       final data = jsonDecode(res.body);
@@ -2053,7 +2053,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     String? errorMessage;
     String? successMessage;
     String? devOtpCode;
-    Currency regCurrency = _userCurrency.code.isNotEmpty ? _userCurrency : Currency.getByCode('LKR');
+    Currency regCurrency = _userCurrency.code.isNotEmpty ? _userCurrency : Currency.defaultCurrency;
 
     // Feature Flags:
     const bool showWelcomeBanner = false;
