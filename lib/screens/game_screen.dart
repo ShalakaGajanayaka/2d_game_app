@@ -555,6 +555,35 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       return {'success': false, 'message': 'Connection error: $e'};
     }
   }
+  String _generateStrongPassword({int length = 12}) {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghijkmnopqrstuvwxyz';
+    const digits = '23456789';
+    const special = '!@#$%&*';
+    const allChars = '$upper$lower$digits$special';
+
+    final rnd = Random.secure();
+    final chars = <String>[
+      upper[rnd.nextInt(upper.length)],
+      lower[rnd.nextInt(lower.length)],
+      digits[rnd.nextInt(digits.length)],
+      special[rnd.nextInt(special.length)],
+    ];
+
+    while (chars.length < length) {
+      chars.add(allChars[rnd.nextInt(allChars.length)]);
+    }
+
+    for (int i = chars.length - 1; i > 0; i--) {
+      final j = rnd.nextInt(i + 1);
+      final temp = chars[i];
+      chars[i] = chars[j];
+      chars[j] = temp;
+    }
+
+    return chars.join();
+  }
+
 
   void _subscribeUserSocket() {
     try {
@@ -2054,6 +2083,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     bool isLoginTab = true;
     bool isForgotPasswordMode = false;
+    bool isPasswordVisible = false;
+    bool isNewPasswordVisible = false;
     bool isOtpSent = false;
     bool isLoading = false;
     String? errorMessage;
@@ -2340,12 +2371,54 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       const SizedBox(height: 12),
                       TextField(
                         controller: newPassController,
-                        obscureText: true,
+                        obscureText: !isNewPasswordVisible,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
+                        onChanged: (_) {
+                          if (errorMessage != null) {
+                            setDialogState(() => errorMessage = null);
+                          }
+                        },
                         decoration: InputDecoration(
                           hintText: 'New Password',
                           hintStyle: const TextStyle(color: Colors.white38),
                           prefixIcon: const Icon(Icons.lock_reset, color: Color(0xFF38BDF8), size: 20),
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (newPassController.text.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, color: Colors.white54, size: 18),
+                                  tooltip: 'Copy password',
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: newPassController.text));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Row(
+                                          children: [
+                                            Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
+                                            SizedBox(width: 8),
+                                            Text('Password copied to clipboard! 📋'),
+                                          ],
+                                        ),
+                                        backgroundColor: Color(0xFF0F172A),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              IconButton(
+                                icon: Icon(
+                                  isNewPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                                  color: isNewPasswordVisible ? const Color(0xFF38BDF8) : Colors.white54,
+                                  size: 19,
+                                ),
+                                tooltip: isNewPasswordVisible ? 'Hide password' : 'Show password',
+                                onPressed: () {
+                                  setDialogState(() => isNewPasswordVisible = !isNewPasswordVisible);
+                                },
+                              ),
+                            ],
+                          ),
                           filled: true,
                           fillColor: const Color(0xFF0F172A),
                           contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -2356,6 +2429,58 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: InkWell(
+                          onTap: () {
+                            final generated = _generateStrongPassword();
+                            setDialogState(() {
+                              newPassController.text = generated;
+                              isNewPasswordVisible = true;
+                              errorMessage = null;
+                            });
+                            Clipboard.setData(ClipboardData(text: generated));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Strong password generated & copied! 📋'),
+                                  ],
+                                ),
+                                backgroundColor: Color(0xFF0F172A),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF38BDF8).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 13),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Suggest Password',
+                                  style: TextStyle(
+                                    color: Color(0xFF38BDF8),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -2392,15 +2517,57 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                       ),
                       const SizedBox(height: 12),
 
-                      // Password Input
+                      // Password Input with Visibility Toggle & Copy Action
                       TextField(
                         controller: passController,
-                        obscureText: true,
+                        obscureText: !isPasswordVisible,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
+                        onChanged: (_) {
+                          if (errorMessage != null) {
+                            setDialogState(() => errorMessage = null);
+                          }
+                        },
                         decoration: InputDecoration(
                           hintText: 'Password',
                           hintStyle: const TextStyle(color: Colors.white38),
                           prefixIcon: const Icon(Icons.lock, color: Color(0xFF38BDF8), size: 20),
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (passController.text.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, color: Colors.white54, size: 18),
+                                  tooltip: 'Copy password',
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: passController.text));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Row(
+                                          children: [
+                                            Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
+                                            SizedBox(width: 8),
+                                            Text('Password copied to clipboard! 📋'),
+                                          ],
+                                        ),
+                                        backgroundColor: Color(0xFF0F172A),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              IconButton(
+                                icon: Icon(
+                                  isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                                  color: isPasswordVisible ? const Color(0xFF38BDF8) : Colors.white54,
+                                  size: 19,
+                                ),
+                                tooltip: isPasswordVisible ? 'Hide password' : 'Show password',
+                                onPressed: () {
+                                  setDialogState(() => isPasswordVisible = !isPasswordVisible);
+                                },
+                              ),
+                            ],
+                          ),
                           filled: true,
                           fillColor: const Color(0xFF0F172A),
                           contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -2413,6 +2580,66 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                             borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Password Policy Note & "Suggest Strong Password" Action
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Min. 8 chars (A-Z, a-z, 0-9)',
+                            style: TextStyle(color: Colors.white38, fontSize: 11),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              final generated = _generateStrongPassword();
+                              setDialogState(() {
+                                passController.text = generated;
+                                isPasswordVisible = true;
+                                errorMessage = null;
+                              });
+                              Clipboard.setData(ClipboardData(text: generated));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Strong password generated & copied! 📋'),
+                                    ],
+                                  ),
+                                  backgroundColor: Color(0xFF0F172A),
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF38BDF8).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 13),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Suggest Password',
+                                    style: TextStyle(
+                                      color: Color(0xFF38BDF8),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 12),
 
@@ -2505,12 +2732,23 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
                       TextField(
                         controller: passController,
-                        obscureText: true,
+                        obscureText: !isPasswordVisible,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'Password',
                           hintStyle: const TextStyle(color: Colors.white38),
                           prefixIcon: const Icon(Icons.lock, color: Color(0xFF38BDF8), size: 20),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                              color: isPasswordVisible ? const Color(0xFF38BDF8) : Colors.white54,
+                              size: 19,
+                            ),
+                            tooltip: isPasswordVisible ? 'Hide password' : 'Show password',
+                            onPressed: () {
+                              setDialogState(() => isPasswordVisible = !isPasswordVisible);
+                            },
+                          ),
                           filled: true,
                           fillColor: const Color(0xFF0F172A),
                           contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
