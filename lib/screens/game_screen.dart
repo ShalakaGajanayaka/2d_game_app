@@ -38,10 +38,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   GameStatus _status = GameStatus.waiting;
   
   double _balance = 1000.0;
-  Currency _userCurrency = (DateTime.now().timeZoneOffset.inMinutes == 330 ||
-          DateTime.now().timeZoneName.toUpperCase().contains('COLOMBO'))
-      ? Currency.getByCode('LKR')
-      : Currency.defaultCurrency;
+  Currency _userCurrency = Currency.defaultCurrency;
   bool _isLoggedIn = false;
   Map<String, dynamic>? _currentUser;
   String? _authToken;
@@ -276,71 +273,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _detectGeoCurrency() async {
-    try {
-      // Tier 1: Instant zero-latency Timezone detection (no network delay)
-      try {
-        final tzName = DateTime.now().timeZoneName.toUpperCase();
-        final tzOffsetMin = DateTime.now().timeZoneOffset.inMinutes;
-
-        // Sri Lanka is UTC+05:30 (offset = 330 minutes)
-        if (tzOffsetMin == 330 || tzName.contains('COLOMBO') || tzName.contains('LK') || tzName.contains('+05:30')) {
-          if (mounted && !_isLoggedIn) {
-            setState(() {
-              _userCurrency = Currency.getByCode('LKR');
-            });
-          }
-        }
-      } catch (_) {}
-
-      // Tier 2: Query NestJS Backend Geo-IP endpoint with timezone context
-      bool backendResolved = false;
-      try {
-        final tzName = DateTime.now().timeZoneName;
-        final tzOffsetMin = DateTime.now().timeZoneOffset.inMinutes;
-        final url = Uri.parse(
-          '${_getServerBaseUrl()}/auth/detect-currency?tz=${Uri.encodeComponent(tzName)}&offset=$tzOffsetMin',
-        );
-        final res = await http.get(url).timeout(const Duration(seconds: 3));
-        if (res.statusCode == 200) {
-          final data = jsonDecode(res.body);
-          final isLocal = data['isLocal'] == true;
-          final currencyCode = data['currency'] as String?;
-
-          if (currencyCode != null && currencyCode.isNotEmpty) {
-            if (mounted && !_isLoggedIn) {
-              setState(() {
-                _userCurrency = Currency.getByCode(currencyCode);
-              });
-            }
-            if (!isLocal) {
-              backendResolved = true;
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('Backend detect-currency notice: $e');
-      }
-
-      // Tier 3: Edge fallback for Web / localhost dev where backend only sees loopback IP
-      if (!backendResolved) {
-        try {
-          final edgeRes = await http.get(Uri.parse('https://api.country.is')).timeout(const Duration(seconds: 3));
-          if (edgeRes.statusCode == 200) {
-            final data = jsonDecode(edgeRes.body);
-            final country = data['country'] as String?;
-            if (country != null && country.isNotEmpty) {
-              final mappedCurCode = CountryCode.fromCountryCode(country).currencyCode;
-              if (mounted && !_isLoggedIn) {
-                setState(() {
-                  _userCurrency = Currency.getByCode(mappedCurCode);
-                });
-              }
-            }
-          }
-        } catch (_) {}
-      }
-    } catch (e) {
-      debugPrint('Geo-currency overall detection notice: $e');
+    // Platform operates exclusively in standard USD/USDT
+    if (mounted && !_isLoggedIn) {
+      setState(() {
+        _userCurrency = Currency.defaultCurrency;
+      });
     }
   }
 
@@ -2108,11 +2045,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     String? errorMessage;
     String? successMessage;
     String? devOtpCode;
-    Currency regCurrency = _userCurrency.code.isNotEmpty ? _userCurrency : Currency.defaultCurrency;
+    Currency regCurrency = Currency.defaultCurrency;
 
     // Feature Flags:
     const bool showWelcomeBanner = false;
-    const bool showCurrencyPicker = true; // Currency selector is now visible!
+    const bool showCurrencyPicker = false;
 
     showDialog(
       context: context,
@@ -3445,30 +3382,21 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  InkWell(
-                                    onTap: () {
-                                      Navigator.of(context).pop();
-                                      _showCurrencySelectorSheet();
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF38BDF8).withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            '${_userCurrency.flag} ${_userCurrency.code} (${_userCurrency.symbol})',
-                                            style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 10, fontWeight: FontWeight.bold),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.arrow_drop_down, color: Color(0xFF38BDF8), size: 14),
-                                        ],
-                                      ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF38BDF8).withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '💵 USD (\$)',
+                                          style: TextStyle(color: Color(0xFF38BDF8), fontSize: 10, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
