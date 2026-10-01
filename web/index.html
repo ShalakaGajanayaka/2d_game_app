@@ -311,6 +311,7 @@
       }
 
       function startMusic() {
+        return; // Background music completely removed
         if (isMusicPlaying) return;
         var ctx = getContext();
         if (!ctx) return;
@@ -540,16 +541,8 @@
       }
 
       function ensureAutoplayResume() {
-        if (audioCtx) {
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume().then(function() {
-              if (!isMusicPlaying && !isMuted) {
-                startMusic();
-              }
-            });
-          } else if (!isMusicPlaying && !isMuted) {
-            startMusic();
-          }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
         }
       }
 
@@ -578,11 +571,12 @@
             flightGain.gain.setTargetAtTime(0.038, audioCtx.currentTime, 0.1);
           }
           if (musicGain && audioCtx) {
-            musicGain.gain.setValueAtTime(isMuted ? 0 : 0.095, audioCtx.currentTime);
+            musicGain.gain.setValueAtTime(0, audioCtx.currentTime);
           }
-          if (!isMuted && !isMusicPlaying) {
-            startMusic();
-          }
+          // UPGRADE_TODO: Background music temporarily commented out for studio upgrade
+          // if (!isMuted && !isMusicPlaying) {
+          //   startMusic();
+          // }
         },
 
         isMuted: function() {
@@ -590,7 +584,8 @@
         },
 
         startMusic: function() {
-          startMusic();
+          // UPGRADE_TODO: Temporarily disabled for upcoming studio soundtrack upgrade
+          // startMusic();
         },
 
         stopMusic: function() {

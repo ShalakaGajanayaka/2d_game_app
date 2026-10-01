@@ -48,8 +48,9 @@ class SoundService {
     impl.playCrashSoundImpl();
   }
 
+  // UPGRADE_TODO: Background ambient music temporarily disabled for upcoming studio soundtrack upgrade.
   static void startMusic() {
-    impl.startMusicImpl();
+    // impl.startMusicImpl();
   }
 
   static void stopMusic() {

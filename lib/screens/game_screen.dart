@@ -251,7 +251,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _isSoundMuted = SoundService.isMuted;
         });
         if (!_isSoundMuted) {
-          SoundService.startMusic();
+          // SoundService.startMusic(); // Background music disabled
         }
       }
     });
