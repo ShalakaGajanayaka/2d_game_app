@@ -2708,8 +2708,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                     setDialogState(() => errorMessage = 'Please enter the verification code and new password');
                                     return;
                                   }
-                                  if (newPass.length < 4) {
-                                    setDialogState(() => errorMessage = 'New password must be at least 4 characters long');
+                                  if (newPass.length < 8 || !newPass.contains(RegExp(r'[A-Z]')) || !newPass.contains(RegExp(r'[a-z]')) || !newPass.contains(RegExp(r'[0-9]'))) {
+                                    setDialogState(() => errorMessage = 'New password must be at least 8 characters long with uppercase, lowercase & numbers');
                                     return;
                                   }
 
@@ -2791,8 +2791,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                   setDialogState(() => errorMessage = 'Please enter a valid email address');
                                   return;
                                 }
-                                if (p.length < 4) {
-                                  setDialogState(() => errorMessage = 'Password must be at least 4 characters long');
+                                if (p.length < 8 || !p.contains(RegExp(r'[A-Z]')) || !p.contains(RegExp(r'[a-z]')) || !p.contains(RegExp(r'[0-9]'))) {
+                                  setDialogState(() => errorMessage = 'Password must be at least 8 characters long with uppercase, lowercase & numbers');
                                   return;
                                 }
 
