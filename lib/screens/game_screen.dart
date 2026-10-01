@@ -79,14 +79,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       case 'USDT':
       case 'EUR':
       case 'GBP':
-        return [1, 2, 5, 10, 20, 50, 100];
+        return [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 1500, 2000];
       case 'AED':
-        return [5, 10, 20, 50, 100, 200, 500];
+        return [5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
       case 'INR':
-        return [20, 50, 100, 200, 500, 1000, 2000];
+        return [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
       case 'LKR':
       default:
-        return [50, 100, 200, 500, 1000, 2000, 5000];
+        return [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
     }
   }
 
@@ -113,11 +113,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       case 'USDT':
       case 'EUR':
       case 'GBP':
-        return 500.0;
-      case 'AED':
         return 2000.0;
+      case 'AED':
+        return 8000.0;
       case 'INR':
-        return 25000.0;
+        return 150000.0;
       case 'LKR':
       default:
         return 20000.0;
@@ -144,7 +144,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   double _getBetStep(double currentBet) {
     final cur = _userCurrency.code.toUpperCase();
     if (cur == 'USD' || cur == 'USDT' || cur == 'EUR' || cur == 'GBP') {
-      return currentBet >= 50 ? 10.0 : (currentBet >= 10 ? 5.0 : 1.0);
+      if (currentBet >= 500) return 100.0;
+      if (currentBet >= 100) return 50.0;
+      if (currentBet >= 50) return 10.0;
+      if (currentBet >= 10) return 5.0;
+      return 1.0;
     } else if (cur == 'AED') {
       return currentBet >= 100 ? 20.0 : 5.0;
     } else {
