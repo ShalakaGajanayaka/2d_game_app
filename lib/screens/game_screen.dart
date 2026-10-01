@@ -395,6 +395,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             }
           }
         });
+        _subscribeUserSocket();
         debugPrint('[Auth] Auto-login successfully restored session for ${_currentUser?['username']} (Balance: $_balance)');
       } else if (res.statusCode == 401 || res.statusCode == 403) {
         debugPrint('[Auth] Saved token expired or invalid. Clearing session.');
@@ -436,6 +437,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _userCurrency = Currency.getByCode(_currentUser!['currency']);
           _syncBetAmountsToCurrency();
         });
+        _subscribeUserSocket();
         return {'success': true, 'user': data['user']};
       } else {
         final msg = data['message'] is List ? (data['message'] as List).join(', ') : data['message'].toString();
@@ -478,6 +480,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _userCurrency = Currency.getByCode(_currentUser!['currency']);
           _syncBetAmountsToCurrency();
         });
+        _subscribeUserSocket();
         return {'success': true, 'user': data['user']};
       } else {
         final msg = data['message'] is List ? (data['message'] as List).join(', ') : data['message'].toString();
@@ -542,6 +545,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _balance = (_currentUser!['balance'] as num).toDouble();
           _userCurrency = Currency.getByCode(_currentUser!['currency']);
         });
+        _subscribeUserSocket();
         return {'success': true, 'message': data['message'], 'user': data['user']};
       } else {
         final msg = data['message'] is List ? (data['message'] as List).join(', ') : data['message'].toString();
@@ -552,7 +556,19 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     }
   }
 
+  void _subscribeUserSocket() {
+    try {
+      if (socket != null && _authToken != null && _authToken!.isNotEmpty) {
+        socket.emit('subscribeUser', {'token': _authToken});
+      }
+    } catch (_) {}
+  }
+
   void _logoutUser() {
+    try {
+      socket?.emit('unsubscribeUser');
+    } catch (_) {}
+
     SharedPreferences.getInstance().then((prefs) {
       prefs.remove('skyrush_auth_token');
     }).catchError((_) {});
@@ -580,6 +596,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       if (mounted) setState(() => _isConnected = true);
       // Immediately perform Clock Synchronization Handshake with Server
       socket.emit('pingSync', {'clientSendTime': DateTime.now().millisecondsSinceEpoch});
+      // Subscribe to private user room for targeted notifications
+      _subscribeUserSocket();
     });
 
     socket.onDisconnect((_) {
@@ -844,7 +862,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
       final bool isMatch = (targetUser != null && (targetUser == myUser || targetUser == myEmail)) ||
           (targetEmail != null && (targetEmail == myEmail || targetEmail == myUser)) ||
-          (targetId != null && targetId == myId);
+          (targetId != null && targetId == myId) ||
+          (targetEmail == null && targetId == null);
 
       if (isMatch) {
         final newBal = (data['balance'] as num?)?.toDouble();
