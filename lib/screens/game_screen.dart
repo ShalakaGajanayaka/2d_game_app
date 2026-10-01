@@ -3214,6 +3214,53 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                             ],
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        // Sound Mute/Unmute Action in Profile Details (Option A)
+                        InkWell(
+                          onTap: () {
+                            final newMuted = !_isSoundMuted;
+                            setState(() {
+                              _isSoundMuted = newMuted;
+                            });
+                            setSheetState(() {});
+                            SoundService.setMuted(newMuted);
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _isSoundMuted
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _isSoundMuted
+                                    ? Colors.white.withValues(alpha: 0.12)
+                                    : const Color(0xFF38BDF8).withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _isSoundMuted ? Icons.volume_off : Icons.volume_up,
+                                  size: 20,
+                                  color: _isSoundMuted ? Colors.white38 : const Color(0xFF38BDF8),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _isSoundMuted ? 'MUTE' : 'SOUND',
+                                  style: TextStyle(
+                                    color: _isSoundMuted ? Colors.white38 : const Color(0xFF38BDF8),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -3704,44 +3751,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                         ),
                       ),
                     ),
-                  // Sound Mute/Unmute Toggle
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: Center(
-                      child: InkWell(
-                        onTap: () {
-                          final newMuted = !_isSoundMuted;
-                          setState(() {
-                            _isSoundMuted = newMuted;
-                          });
-                          SoundService.setMuted(newMuted);
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Tooltip(
-                          message: _isSoundMuted ? 'Unmute Sound' : 'Mute Sound',
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: _isSoundMuted
-                                  ? Colors.white.withValues(alpha: 0.05)
-                                  : const Color(0xFF38BDF8).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _isSoundMuted
-                                    ? Colors.white.withValues(alpha: 0.12)
-                                    : const Color(0xFF38BDF8).withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: Icon(
-                              _isSoundMuted ? Icons.volume_off : Icons.volume_up,
-                              size: 16,
-                              color: _isSoundMuted ? Colors.white38 : const Color(0xFF38BDF8),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  const SizedBox(width: 8),
                 ],
               );
             },
