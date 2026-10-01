@@ -559,7 +559,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const lower = 'abcdefghijkmnopqrstuvwxyz';
     const digits = '23456789';
-    const special = '!@#$%&*';
+    const special = r'!@#$%&*';
     const allChars = '$upper$lower$digits$special';
 
     final rnd = Random.secure();
