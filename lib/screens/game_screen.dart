@@ -810,22 +810,14 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _handledCashOutInTapDown1 = false;
               _handledCashOutInTapDown2 = false;
 
-              // Auto-dispatch in-flight pre-queued bets for the new round
-              final bool shouldQueue1 = _isNextRoundQueued1 && !_isBetPlaced1;
-              final bool shouldQueue2 = _isNextRoundQueued2 && !_isBetPlaced2;
-              _isNextRoundQueued1 = false;
-              _isNextRoundQueued2 = false;
-
-              if (shouldQueue1 || shouldQueue2) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted || _status != GameStatus.waiting) return;
-                  if (shouldQueue1 && !_isBetPlaced1) {
-                    _toggleBet(1);
-                  }
-                  if (shouldQueue2 && !_isBetPlaced2) {
-                    _toggleBet(2);
-                  }
-                });
+              // Transition any pre-queued bets smoothly into active placed bets for new round
+              if (_isNextRoundQueued1) {
+                _isBetPlaced1 = true;
+                _isNextRoundQueued1 = false;
+              }
+              if (_isNextRoundQueued2) {
+                _isBetPlaced2 = true;
+                _isNextRoundQueued2 = false;
               }
            }
            _status = newStatus;
@@ -937,6 +929,23 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         }
       }
     });
+
+    socket.on('betActivated', (data) {
+      if (!mounted) return;
+      final betIndex = (data['betIndex'] as num?)?.toInt() ?? 1;
+      final amount = (data['amount'] as num?)?.toDouble();
+      setState(() {
+        if (betIndex == 1) {
+          _isNextRoundQueued1 = false;
+          _isBetPlaced1 = true;
+          if (amount != null) _betAmount1 = amount;
+        } else {
+          _isNextRoundQueued2 = false;
+          _isBetPlaced2 = true;
+          if (amount != null) _betAmount2 = amount;
+        }
+      });
+    });
   }
 
   Future<void> _toggleBet(int betIndex) async {
@@ -954,176 +963,224 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       return;
     }
 
-    if (_status == GameStatus.waiting) {
-      // Guard against rapid multi-click debounce while request in flight
-      if ((betIndex == 1 && _isSubmittingBet1) || (betIndex == 2 && _isSubmittingBet2)) {
+    // Guard against rapid multi-click debounce while request in flight
+    if ((betIndex == 1 && _isSubmittingBet1) || (betIndex == 2 && _isSubmittingBet2)) {
+      return;
+    }
+
+    double currentBet = betIndex == 1 ? _betAmount1 : _betAmount2;
+    bool isPlaced = betIndex == 1 ? _isBetPlaced1 : _isBetPlaced2;
+    bool isQueued = betIndex == 1 ? _isNextRoundQueued1 : _isNextRoundQueued2;
+    TextEditingController controller = betIndex == 1 ? _betController1 : _betController2;
+    
+    final parsed = double.tryParse(controller.text);
+    if (parsed != null && parsed > 0) {
+      currentBet = parsed;
+    }
+
+    if (isPlaced || isQueued) {
+      // --- 0ms OPTIMISTIC CANCEL BET (ACTIVE OR QUEUED) ---
+      final double previousBalance = _balance;
+      setState(() {
+        if (betIndex == 1) {
+          _isSubmittingBet1 = true;
+          _isBetPlaced1 = false;
+          _isNextRoundQueued1 = false;
+          _betAmount1 = currentBet;
+        } else {
+          _isSubmittingBet2 = true;
+          _isBetPlaced2 = false;
+          _isNextRoundQueued2 = false;
+          _betAmount2 = currentBet;
+        }
+        _balance += currentBet; // Instant optimistic refund
+      });
+
+      try {
+        final url = Uri.parse('${_getServerBaseUrl()}/auth/game-cancel-bet');
+        final res = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_authToken',
+          },
+          body: jsonEncode({'betIndex': betIndex}),
+        );
+        if (!mounted) return;
+        final data = jsonDecode(res.body);
+        if (res.statusCode == 200 || res.statusCode == 201) {
+          setState(() {
+            _balance = (data['balance'] as num).toDouble();
+            if (betIndex == 1) {
+              _isSubmittingBet1 = false;
+              _isBetPlaced1 = false;
+              _isNextRoundQueued1 = false;
+            } else {
+              _isSubmittingBet2 = false;
+              _isBetPlaced2 = false;
+              _isNextRoundQueued2 = false;
+            }
+          });
+        } else {
+          // Revert on error
+          final msg = data['message'] ?? 'Could not cancel bet';
+          setState(() {
+            _balance = previousBalance;
+            if (betIndex == 1) {
+              _isBetPlaced1 = isPlaced;
+              _isNextRoundQueued1 = isQueued;
+              _isSubmittingBet1 = false;
+            } else {
+              _isBetPlaced2 = isPlaced;
+              _isNextRoundQueued2 = isQueued;
+              _isSubmittingBet2 = false;
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error cancelling bet: $e');
+        if (mounted) {
+          setState(() {
+            _balance = previousBalance;
+            if (betIndex == 1) {
+              _isBetPlaced1 = isPlaced;
+              _isNextRoundQueued1 = isQueued;
+              _isSubmittingBet1 = false;
+            } else {
+              _isBetPlaced2 = isPlaced;
+              _isNextRoundQueued2 = isQueued;
+              _isSubmittingBet2 = false;
+            }
+          });
+        }
+      }
+    } else {
+      // --- 0ms OPTIMISTIC PLACE BET (FOR CURRENT OR NEXT ROUND) ---
+      final minB = _currencyMinBet;
+      final maxB = _currencyMaxBet;
+      if (currentBet < minB) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Minimum bet is ${minB.toStringAsFixed(0)} ${_userCurrency.code}!'), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
+        );
+        return;
+      }
+      if (currentBet > maxB) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Maximum bet is ${maxB.toStringAsFixed(0)} ${_userCurrency.code}!'), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
+        );
+        return;
+      }
+      if (_balance < currentBet) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Insufficient balance!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
+        );
         return;
       }
 
-      double currentBet = betIndex == 1 ? _betAmount1 : _betAmount2;
-      bool isPlaced = betIndex == 1 ? _isBetPlaced1 : _isBetPlaced2;
-      TextEditingController controller = betIndex == 1 ? _betController1 : _betController2;
-      
-      final parsed = double.tryParse(controller.text);
-      if (parsed != null && parsed > 0) {
-        currentBet = parsed;
-      }
-
-      if (isPlaced) {
-        // --- 0ms OPTIMISTIC CANCEL BET ---
-        final double previousBalance = _balance;
-        setState(() {
-          if (betIndex == 1) {
-            _isSubmittingBet1 = true;
+      final bool willBeQueued = _status != GameStatus.waiting;
+      final double previousBalance = _balance;
+      setState(() {
+        if (betIndex == 1) {
+          _isSubmittingBet1 = true;
+          if (willBeQueued) {
+            _isNextRoundQueued1 = true;
             _isBetPlaced1 = false;
-            _betAmount1 = currentBet;
           } else {
-            _isSubmittingBet2 = true;
-            _isBetPlaced2 = false;
-            _betAmount2 = currentBet;
-          }
-          _balance += currentBet; // Instant optimistic refund
-        });
-
-        try {
-          final url = Uri.parse('${_getServerBaseUrl()}/auth/game-cancel-bet');
-          final res = await http.post(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_authToken',
-            },
-            body: jsonEncode({'betIndex': betIndex}),
-          );
-          if (!mounted) return;
-          final data = jsonDecode(res.body);
-          if (res.statusCode == 200 || res.statusCode == 201) {
-            setState(() {
-              _balance = (data['balance'] as num).toDouble();
-              if (betIndex == 1) _isSubmittingBet1 = false;
-              else _isSubmittingBet2 = false;
-            });
-          } else {
-            // Revert on error
-            final msg = data['message'] ?? 'Could not cancel bet';
-            setState(() {
-              _balance = previousBalance;
-              if (betIndex == 1) {
-                _isBetPlaced1 = true;
-                _isSubmittingBet1 = false;
-              } else {
-                _isBetPlaced2 = true;
-                _isSubmittingBet2 = false;
-              }
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
-            );
-          }
-        } catch (e) {
-          debugPrint('Error cancelling bet: $e');
-          if (mounted) {
-            setState(() {
-              _balance = previousBalance;
-              if (betIndex == 1) {
-                _isBetPlaced1 = true;
-                _isSubmittingBet1 = false;
-              } else {
-                _isBetPlaced2 = true;
-                _isSubmittingBet2 = false;
-              }
-            });
-          }
-        }
-      } else {
-        // --- 0ms OPTIMISTIC PLACE BET ---
-        if (currentBet < 50) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Minimum bet is 50!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
-          );
-          return;
-        }
-        if (currentBet > 20000) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Maximum bet is 20,000!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
-          );
-          return;
-        }
-        if (_balance < currentBet) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Insufficient balance!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
-          );
-          return;
-        }
-
-        final double previousBalance = _balance;
-        setState(() {
-          if (betIndex == 1) {
-            _isSubmittingBet1 = true;
             _isBetPlaced1 = true;
-            _betAmount1 = currentBet;
-            _hasCashedOut1 = false;
-          } else {
-            _isSubmittingBet2 = true;
-            _isBetPlaced2 = true;
-            _betAmount2 = currentBet;
-            _hasCashedOut2 = false;
+            _isNextRoundQueued1 = false;
           }
-          _balance = (_balance - currentBet).clamp(0.0, double.infinity); // Instant optimistic deduction
-        });
-
-        try {
-          final url = Uri.parse('${_getServerBaseUrl()}/auth/game-bet');
-          final res = await http.post(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_authToken',
-            },
-            body: jsonEncode({
-              'betIndex': betIndex,
-              'amount': currentBet,
-            }),
-          );
-          if (!mounted) return;
-          final data = jsonDecode(res.body);
-          if (res.statusCode == 200 || res.statusCode == 201) {
-            setState(() {
-              _balance = (data['balance'] as num).toDouble();
-              if (betIndex == 1) _isSubmittingBet1 = false;
-              else _isSubmittingBet2 = false;
-            });
+          _betAmount1 = currentBet;
+          _hasCashedOut1 = false;
+        } else {
+          _isSubmittingBet2 = true;
+          if (willBeQueued) {
+            _isNextRoundQueued2 = true;
+            _isBetPlaced2 = false;
           } else {
-            // Revert on error
-            final msg = data['message'] ?? 'Could not place bet';
-            setState(() {
-              _balance = previousBalance;
-              if (betIndex == 1) {
-                _isBetPlaced1 = false;
-                _isSubmittingBet1 = false;
-              } else {
-                _isBetPlaced2 = false;
-                _isSubmittingBet2 = false;
-              }
-            });
+            _isBetPlaced2 = true;
+            _isNextRoundQueued2 = false;
+          }
+          _betAmount2 = currentBet;
+          _hasCashedOut2 = false;
+        }
+        _balance = (_balance - currentBet).clamp(0.0, double.infinity); // Instant optimistic deduction
+      });
+
+      try {
+        final url = Uri.parse('${_getServerBaseUrl()}/auth/game-bet');
+        final res = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_authToken',
+          },
+          body: jsonEncode({
+            'betIndex': betIndex,
+            'amount': currentBet,
+          }),
+        );
+        if (!mounted) return;
+        final data = jsonDecode(res.body);
+        if (res.statusCode == 200 || res.statusCode == 201) {
+          final bool isQueuedResponse = data['queued'] == true;
+          setState(() {
+            _balance = (data['balance'] as num).toDouble();
+            if (betIndex == 1) {
+              _isSubmittingBet1 = false;
+              _isNextRoundQueued1 = isQueuedResponse;
+              _isBetPlaced1 = !isQueuedResponse;
+            } else {
+              _isSubmittingBet2 = false;
+              _isNextRoundQueued2 = isQueuedResponse;
+              _isBetPlaced2 = !isQueuedResponse;
+            }
+          });
+          if (isQueuedResponse) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
+              const SnackBar(
+                content: Text('Bet queued for next round ✈️'),
+                backgroundColor: Color(0xFF0284C7),
+                duration: Duration(seconds: 2),
+              ),
             );
           }
-        } catch (e) {
-          debugPrint('Error placing bet: $e');
-          if (mounted) {
-            setState(() {
-              _balance = previousBalance;
-              if (betIndex == 1) {
-                _isBetPlaced1 = false;
-                _isSubmittingBet1 = false;
-              } else {
-                _isBetPlaced2 = false;
-                _isSubmittingBet2 = false;
-              }
-            });
-          }
+        } else {
+          // Revert on error
+          final msg = data['message'] ?? 'Could not place bet';
+          setState(() {
+            _balance = previousBalance;
+            if (betIndex == 1) {
+              _isBetPlaced1 = false;
+              _isNextRoundQueued1 = false;
+              _isSubmittingBet1 = false;
+            } else {
+              _isBetPlaced2 = false;
+              _isNextRoundQueued2 = false;
+              _isSubmittingBet2 = false;
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red, duration: const Duration(seconds: 2)),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error placing bet: $e');
+        if (mounted) {
+          setState(() {
+            _balance = previousBalance;
+            if (betIndex == 1) {
+              _isBetPlaced1 = false;
+              _isNextRoundQueued1 = false;
+              _isSubmittingBet1 = false;
+            } else {
+              _isBetPlaced2 = false;
+              _isNextRoundQueued2 = false;
+              _isSubmittingBet2 = false;
+            }
+          });
         }
       }
     }
@@ -1576,48 +1633,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   _toggleBet(betIndex);
                 } else if (isPlaying && isPlaced && !hasCashedOut) {
                   _cashOut(betIndex);
-                } else if ((isPlaying || _status == GameStatus.crashed) && (!isPlaced || (hasCashedOut && !showVictory))) {
-                  // In-flight pre-queue toggle
-                  final double currentBet = betIndex == 1 ? _betAmount1 : _betAmount2;
-                  final bool isCurrentlyQueued = betIndex == 1 ? _isNextRoundQueued1 : _isNextRoundQueued2;
-
-                  if (!isCurrentlyQueued) {
-                    if (currentBet < 50) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Minimum bet is 50!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
-                      );
-                      return;
-                    }
-                    if (currentBet > 20000) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Maximum bet is 20,000!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
-                      );
-                      return;
-                    }
-                    final double otherQueuedAmount = (betIndex == 1 ? (_isNextRoundQueued2 ? _betAmount2 : 0.0) : (_isNextRoundQueued1 ? _betAmount1 : 0.0));
-                    if (_balance < (currentBet + otherQueuedAmount)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Insufficient balance!'), backgroundColor: Colors.red, duration: Duration(seconds: 2)),
-                      );
-                      return;
-                    }
-
-                    setState(() {
-                      if (betIndex == 1) {
-                        _isNextRoundQueued1 = true;
-                      } else {
-                        _isNextRoundQueued2 = true;
-                      }
-                    });
-                  } else {
-                    setState(() {
-                      if (betIndex == 1) {
-                        _isNextRoundQueued1 = false;
-                      } else {
-                        _isNextRoundQueued2 = false;
-                      }
-                    });
-                  }
+                } else if ((isPlaying || _status == GameStatus.crashed) && (!isPlaced || (hasCashedOut && !showVictory) || isNextRoundQueued)) {
+                  // In-flight next-round bet toggle (places or cancels queued bet directly on server)
+                  _toggleBet(betIndex);
                 }
               },
               child: AnimatedScale(
