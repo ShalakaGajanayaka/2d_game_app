@@ -256,7 +256,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                     const Text('Amount Debited:', style: TextStyle(color: Colors.white70, fontSize: 13)),
                     Text(
                       '${widget.currency.symbol}${amount.toStringAsFixed(2)}',
-                      style: const TextStyle(color: Color(0xFFF43F5E), fontSize: 15, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -370,7 +370,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.arrow_upward_rounded, color: Color(0xFFF43F5E), size: 26),
+                      Icon(Icons.arrow_upward_rounded, color: Color(0xFFF59E0B), size: 26),
                       SizedBox(width: 8),
                       Text(
                         'Withdraw Credits',
@@ -746,7 +746,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitWithdrawal,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF43F5E),
+                    backgroundColor: const Color(0xFFF59E0B),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 4,
                   ),

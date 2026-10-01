@@ -3569,7 +3569,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFF43F5E),
+                                backgroundColor: const Color(0xFFF59E0B),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 elevation: 3,
                               ),
