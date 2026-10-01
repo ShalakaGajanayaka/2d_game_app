@@ -4,7 +4,7 @@ import 'sound_stub.dart'
     if (dart.library.js) 'sound_web.dart' as impl;
 
 class SoundService {
-  static bool _isMuted = false;
+  static bool _isMuted = true;
   static bool _initialized = false;
 
   static bool get isMuted => _isMuted;
@@ -14,7 +14,7 @@ class SoundService {
     _initialized = true;
     try {
       final prefs = await SharedPreferences.getInstance();
-      _isMuted = prefs.getBool('skyrush_sound_muted') ?? false;
+      _isMuted = prefs.getBool('skyrush_sound_muted') ?? true;
       impl.setSoundMutedImpl(_isMuted);
     } catch (_) {}
   }

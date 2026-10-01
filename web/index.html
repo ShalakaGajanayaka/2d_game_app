@@ -282,7 +282,7 @@
     // SkyRush Dynamic Web Audio Synthesizer (0 KB download, tension riser engine & ambient music)
     window.SkyRushAudio = (function() {
       var audioCtx = null;
-      var isMuted = false;
+      var isMuted = true;
       var isFlightActive = false;
       var osc1 = null;
       var osc2 = null;
@@ -554,7 +554,9 @@
         init: function() {
           try {
             var saved = localStorage.getItem('skyrush_sound_muted');
-            if (saved === 'true') {
+            if (saved !== null) {
+              isMuted = (saved === 'true');
+            } else {
               isMuted = true;
             }
           } catch(e) {}
@@ -565,6 +567,10 @@
           try {
             localStorage.setItem('skyrush_sound_muted', isMuted ? 'true' : 'false');
           } catch(e) {}
+          var ctx = getContext();
+          if (!isMuted && ctx && ctx.state === 'suspended') {
+            ctx.resume();
+          }
           if (isMuted && flightGain && audioCtx) {
             flightGain.gain.setValueAtTime(0, audioCtx.currentTime);
           } else if (!isMuted && flightGain && audioCtx && isFlightActive) {
@@ -573,10 +579,6 @@
           if (musicGain && audioCtx) {
             musicGain.gain.setValueAtTime(0, audioCtx.currentTime);
           }
-          // UPGRADE_TODO: Background music temporarily commented out for studio upgrade
-          // if (!isMuted && !isMusicPlaying) {
-          //   startMusic();
-          // }
         },
 
         isMuted: function() {

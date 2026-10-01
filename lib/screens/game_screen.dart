@@ -45,7 +45,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _isLoggedIn = false;
   Map<String, dynamic>? _currentUser;
   String? _authToken;
-  bool _isSoundMuted = false;
+  bool _isSoundMuted = true;
   
   // Bet 1
   double _betAmount1 = 50.0;
