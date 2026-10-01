@@ -565,6 +565,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   void _logoutUser() {
+    final tokenToRevoke = _authToken;
+    if (tokenToRevoke != null && tokenToRevoke.isNotEmpty) {
+      try {
+        http.post(
+          Uri.parse('${_getServerBaseUrl()}/auth/logout'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $tokenToRevoke',
+          },
+          body: jsonEncode({'token': tokenToRevoke}),
+        ).catchError((_) {});
+      } catch (_) {}
+    }
+
     try {
       socket?.emit('unsubscribeUser');
     } catch (_) {}
@@ -737,15 +751,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                  _history.removeLast();
               }
 
-              if (_isBetPlaced1) {
-                double winAmt = _hasCashedOut1 ? (_betAmount1 * _cashedOutMultiplier1) : 0.0;
-                _saveBetHistory(_betAmount1, _hasCashedOut1 ? _cashedOutMultiplier1 : null, _currentMultiplier, winAmt);
-              }
-              if (_isBetPlaced2) {
-                double winAmt = _hasCashedOut2 ? (_betAmount2 * _cashedOutMultiplier2) : 0.0;
-                _saveBetHistory(_betAmount2, _hasCashedOut2 ? _cashedOutMultiplier2 : null, _currentMultiplier, winAmt);
-              }
-
+              // Bet history is 100% server-authoritative; no client post required
               _isBetPlaced1 = false;
               _isBetPlaced2 = false;
               _hasCashedOut1 = false;
@@ -1206,26 +1212,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _saveBetHistory(double betAmount, double? cashedOutMultiplier, double crashPoint, double winAmount) async {
-    if (_authToken == null) return;
-    try {
-      final url = Uri.parse('${_getServerBaseUrl()}/auth/bet-history');
-      await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_authToken',
-        },
-        body: jsonEncode({
-          'betAmount': betAmount,
-          'cashOutMultiplier': cashedOutMultiplier,
-          'crashPoint': crashPoint,
-          'winAmount': winAmount,
-          'currency': _userCurrency.code,
-        }),
-      );
-    } catch (e) {
-      debugPrint('Failed to save bet history: $e');
-    }
+    // Bet history is 100% server-authoritative; client injection is permanently disabled.
   }
 
   @override
