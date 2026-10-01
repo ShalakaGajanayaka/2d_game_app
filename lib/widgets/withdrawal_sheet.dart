@@ -429,7 +429,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text(
-                            'Binance / USDT (Crypto)',
+                            'USDT (Binance / Trust Wallet / Any Crypto Wallet)',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -438,7 +438,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Fast Instant Payout • Min: 7 USDT',
+                            'Binance Pay ID, BEP20 or TRC20 • Min: 7 USDT',
                             style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11),
                           ),
                         ],
@@ -615,9 +615,9 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               ),
               const SizedBox(height: 18),
 
-              // Binance Payout Destination Form
+              // Payout Destination Form
               const Text(
-                'Binance / USDT Payout Details',
+                'Crypto Payout Details (Binance / Trust Wallet / Any Wallet)',
                 style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
@@ -625,15 +625,15 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
               // Binance Pay ID or USDT Address Field
               _buildTextField(
                 controller: _binancePayIdController,
-                hint: 'Binance Pay ID (e.g. 548934240) or USDT BEP20/TRC20 Address',
+                hint: 'Binance Pay ID or USDT Address (BEP20 / TRC20)',
                 icon: Icons.account_balance_wallet,
               ),
               const SizedBox(height: 10),
 
-              // Binance Nickname / Account Name (Optional)
+              // Wallet Nickname / Account Name (Optional)
               _buildTextField(
                 controller: _binanceNicknameController,
-                hint: 'Binance Nickname / Account Name (Optional)',
+                hint: 'Wallet Name / Nickname (e.g. Trust Wallet / Binance)',
                 icon: Icons.person_outline,
               ),
               const SizedBox(height: 10),
@@ -653,7 +653,7 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Direct Crypto Transfer: Funds will be sent directly to your Binance Pay ID or USDT address within 15–30 minutes upon admin verification.',
+                        'Direct Crypto Transfer: Funds sent directly to your Binance Pay ID, Trust Wallet, MetaMask, or any BEP20/TRC20 address within 15–30 minutes upon admin verification.',
                         style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.4),
                       ),
                     ),
