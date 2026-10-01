@@ -154,6 +154,8 @@ class _WithdrawalSheetState extends State<WithdrawalSheet> {
   }
 
   Future<void> _submitWithdrawal() async {
+    if (_isSubmitting) return;
+
     final amountText = _amountController.text.trim();
     final amount = double.tryParse(amountText);
 
