@@ -85,10 +85,10 @@ class LiveBetsAdapter {
   static const List<double> inrMedium = [750, 1000, 1500, 2000, 2500, 3000, 5000];
   static const List<double> inrHigh = [7500, 10000, 15000, 20000];
 
-  // USD / Default bet distributions
-  static const List<double> usdSmall = [5, 10, 15, 20, 25, 30, 40, 50];
-  static const List<double> usdMedium = [60, 75, 100, 150, 200, 250];
-  static const List<double> usdHigh = [300, 500, 750, 1000, 1500, 2000];
+  // USD / Default bet distributions - Realistic Casino Distribution
+  static const List<double> usdSmall = [1, 2, 3, 5, 8, 10, 12, 15, 20, 25];
+  static const List<double> usdMedium = [30, 40, 50, 60, 75, 80, 100];
+  static const List<double> usdHigh = [120, 150, 180, 200, 250, 300, 500];
 
   /// Transforms an incoming bet from the server into a currency-accurate, localized bet
   static Map<String, dynamic> localize(Map<String, dynamic> rawBet, String currencyCode) {
@@ -149,9 +149,9 @@ class LiveBetsAdapter {
       final int nameIdx = ((botIndex * 73) + roundOffset) % usdNames.length;
       name = usdNames[nameIdx];
       final roll = seed % 100;
-      if (roll < 65) {
+      if (roll < 75) {
         betAmount = usdSmall[(seed ~/ 100) % usdSmall.length];
-      } else if (roll < 90) {
+      } else if (roll < 95) {
         betAmount = usdMedium[(seed ~/ 100) % usdMedium.length];
       } else {
         betAmount = usdHigh[(seed ~/ 100) % usdHigh.length];

@@ -1699,8 +1699,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       displayBets.add(LiveBetsAdapter.localize(rawBet, _userCurrency.code));
     }
 
-    // Stable Rank & Sort: Fixed order by Highest Bet Amount descending
+    // Stable Rank & Sort: Prioritize player's own bet at the top, then sort by Bet Amount descending
     displayBets.sort((a, b) {
+      final bool aIsMe = a['isMe'] == true;
+      final bool bIsMe = b['isMe'] == true;
+      if (aIsMe && !bIsMe) return -1;
+      if (!aIsMe && bIsMe) return 1;
+
       final double aBet = ((a['bet'] ?? 0) as num).toDouble();
       final double bBet = ((b['bet'] ?? 0) as num).toDouble();
       if (bBet != aBet) {
