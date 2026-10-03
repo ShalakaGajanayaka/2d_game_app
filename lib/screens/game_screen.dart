@@ -72,6 +72,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   
   double _currentMultiplier = 1.0;
   final ValueNotifier<double> _multiplierNotifier = ValueNotifier<double>(1.0);
+  double? _marketingTargetCrash;
 
   List<num> get _currencyQuickBets {
     switch (_userCurrency.code.toUpperCase()) {
@@ -236,7 +237,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           final double syncedServerEpoch = DateTime.now().millisecondsSinceEpoch + _serverClockOffset;
           final double elapsedSeconds = max(0.0, (syncedServerEpoch - _serverStartTime) / 1000.0);
           // Industry standard smooth exponential progression: e^(0.095 * t) (~7.3s to reach 2.00x)
-          final double nextMultiplier = max(1.0, exp(0.095 * elapsedSeconds));
+          final double calculatedMultiplier = max(1.0, exp(0.095 * elapsedSeconds));
+          final double nextMultiplier = (_marketingTargetCrash != null && _marketingTargetCrash! > 1.0)
+              ? min(_marketingTargetCrash!, calculatedMultiplier)
+              : calculatedMultiplier;
           _currentMultiplier = nextMultiplier;
           _multiplierNotifier.value = nextMultiplier;
           SoundService.updateMultiplier(nextMultiplier);
@@ -617,6 +621,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       if (serverStartTime != null) {
         _serverStartTime = serverStartTime;
       }
+      final double? targetCrash = (data['targetCrashPoint'] as num?)?.toDouble();
+      if (targetCrash != null) {
+        _marketingTargetCrash = targetCrash;
+      }
 
       // If client was still stuck in waiting due to a dropped/delayed start packet, immediately transition!
       if (_status == GameStatus.waiting) {
@@ -630,11 +638,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
       // Soft convergence towards authoritative server multiplier
       if (_status == GameStatus.playing || _status == GameStatus.spectating) {
-        final diff = serverMultiplier - _currentMultiplier;
+        final double effectiveServerMultiplier = (_marketingTargetCrash != null && _marketingTargetCrash! > 1.0)
+            ? min(_marketingTargetCrash!, serverMultiplier)
+            : serverMultiplier;
+        final diff = effectiveServerMultiplier - _currentMultiplier;
         if (diff.abs() > 0.12) {
           final nudged = _currentMultiplier + (diff * 0.4);
-          _currentMultiplier = nudged;
-          _multiplierNotifier.value = nudged;
+          final clampedNudged = (_marketingTargetCrash != null && _marketingTargetCrash! > 1.0)
+              ? min(_marketingTargetCrash!, nudged)
+              : nudged;
+          _currentMultiplier = clampedNudged;
+          _multiplierNotifier.value = clampedNudged;
         }
       }
     });
@@ -647,6 +661,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       final serverStatus = data['status'];
       final serverCountdown = (data['countdown'] as num?)?.toInt() ?? 10;
       final serverTargetStartTime = (data['targetStartTime'] as num?)?.toDouble();
+      final double? targetCrash = (data['targetCrashPoint'] as num?)?.toDouble();
+
+      if (serverStatus == 'playing') {
+        _marketingTargetCrash = targetCrash;
+      } else {
+        _marketingTargetCrash = null;
+      }
 
       if (serverStatus == 'waiting') {
         if (serverTargetStartTime != null && serverTargetStartTime > 0) {
@@ -704,6 +725,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               SoundService.startFlight();
            } 
            else if (newStatus == GameStatus.crashed) {
+              _marketingTargetCrash = null;
               SoundService.stopFlight(crashed: true);
               SoundService.playCrash();
               _localCountdownTimer?.cancel();
@@ -734,6 +756,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               _handledCashOutInTapDown2 = false;
            }
            else if (newStatus == GameStatus.waiting) {
+              _marketingTargetCrash = null;
               SoundService.stopFlight(crashed: false);
               _controller.stop();
               _currentMultiplier = 1.0;
