@@ -74,87 +74,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   final ValueNotifier<double> _multiplierNotifier = ValueNotifier<double>(1.0);
   double? _marketingTargetCrash;
 
-  List<num> get _currencyQuickBets {
-    switch (_userCurrency.code.toUpperCase()) {
-      case 'USD':
-      case 'USDT':
-      case 'EUR':
-      case 'GBP':
-        return [1, 2, 5, 10, 20, 50, 100, 200, 500];
-      case 'AED':
-        return [5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-      case 'INR':
-        return [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-      case 'LKR':
-      default:
-        return [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-    }
-  }
+  List<num> get _currencyQuickBets => [1, 2, 5, 10, 20, 50, 100, 200, 500];
 
-  double get _currencyMinBet {
-    switch (_userCurrency.code.toUpperCase()) {
-      case 'USD':
-      case 'USDT':
-      case 'EUR':
-      case 'GBP':
-        return 1.0;
-      case 'AED':
-        return 5.0;
-      case 'INR':
-        return 20.0;
-      case 'LKR':
-      default:
-        return 50.0;
-    }
-  }
+  double get _currencyMinBet => 1.0;
 
-  double get _currencyMaxBet {
-    switch (_userCurrency.code.toUpperCase()) {
-      case 'USD':
-      case 'USDT':
-      case 'EUR':
-      case 'GBP':
-        return 500.0;
-      case 'AED':
-        return 8000.0;
-      case 'INR':
-        return 150000.0;
-      case 'LKR':
-      default:
-        return 20000.0;
-    }
-  }
+  double get _currencyMaxBet => 500.0;
 
-  double get _currencyDefaultBet {
-    switch (_userCurrency.code.toUpperCase()) {
-      case 'USD':
-      case 'USDT':
-      case 'EUR':
-      case 'GBP':
-        return 1.0;
-      case 'AED':
-        return 5.0;
-      case 'INR':
-        return 50.0;
-      case 'LKR':
-      default:
-        return 100.0;
-    }
-  }
+  double get _currencyDefaultBet => 10.0;
 
   double _getBetStep(double currentBet) {
-    final cur = _userCurrency.code.toUpperCase();
-    if (cur == 'USD' || cur == 'USDT' || cur == 'EUR' || cur == 'GBP') {
-      if (currentBet >= 500) return 100.0;
-      if (currentBet >= 100) return 50.0;
-      if (currentBet >= 50) return 10.0;
-      if (currentBet >= 10) return 5.0;
-      return 1.0;
-    } else if (cur == 'AED') {
-      return currentBet >= 100 ? 20.0 : 5.0;
-    } else {
-      return currentBet >= 1000 ? 100.0 : (currentBet >= 200 ? 50.0 : 10.0);
-    }
+    if (currentBet >= 500) return 100.0;
+    if (currentBet >= 100) return 50.0;
+    if (currentBet >= 50) return 10.0;
+    if (currentBet >= 10) return 5.0;
+    return 1.0;
   }
 
   void _syncBetAmountsToCurrency() {
@@ -572,12 +505,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     _detectGeoCurrency();
   }
 
-  void _initSocket() {
+  void _initSocket() async {
     String serverUrl = _getServerBaseUrl();
+
+    if (_authToken == null || _authToken!.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString('skyrush_auth_token');
+        if (saved != null && saved.isNotEmpty) {
+          _authToken = saved;
+        }
+      } catch (_) {}
+    }
 
     socket = IO.io(serverUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
+      if (_authToken != null && _authToken!.isNotEmpty)
+        'auth': {'token': _authToken},
     });
     
     socket.onConnect((_) {
@@ -586,6 +531,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       socket.emit('pingSync', {'clientSendTime': DateTime.now().millisecondsSinceEpoch});
       // Subscribe to private user room for targeted notifications
       _subscribeUserSocket();
+    });
+
+    socket.on('userSubscribed', (data) {
+      if (!mounted) return;
+      debugPrint('[Socket] userSubscribed: $data');
+      if (data != null && data['isMarketing'] == true) {
+        setState(() {
+          _liveBets.clear();
+        });
+      }
     });
 
     socket.onDisconnect((_) {
@@ -616,6 +571,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     socket.on('flightSync', (data) {
       if (!mounted) return;
+      final String? incomingRoom = data['room']?.toString();
+      final bool isMarketing = _currentUser?['isMarketing'] == true;
+      if (isMarketing && incomingRoom == 'standard') return;
+      if (!isMarketing && incomingRoom == 'marketing') return;
+
       final double serverMultiplier = (data['multiplier'] as num?)?.toDouble() ?? 1.0;
       final double? serverStartTime = (data['startTime'] as num?)?.toDouble();
       if (serverStartTime != null) {
@@ -658,6 +618,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     socket.on('gameState', (data) {
       if (!mounted) return;
       
+      final String? incomingRoom = data['room']?.toString();
+      final bool isMarketing = _currentUser?['isMarketing'] == true;
+      if (isMarketing && incomingRoom == 'standard') {
+        // Discard lingering standard room packets for marketing streamers
+        return;
+      }
+      if (!isMarketing && incomingRoom == 'marketing') {
+        // Discard marketing room packets for real clients
+        return;
+      }
+
       final serverStatus = data['status'];
       final serverCountdown = (data['countdown'] as num?)?.toInt() ?? 10;
       final serverTargetStartTime = (data['targetStartTime'] as num?)?.toDouble();
