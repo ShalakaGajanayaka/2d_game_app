@@ -79,7 +79,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       case 'USDT':
       case 'EUR':
       case 'GBP':
-        return [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 1500, 2000];
+        return [1, 2, 5, 10, 20, 50, 100, 200, 500];
       case 'AED':
         return [5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
       case 'INR':
@@ -113,7 +113,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       case 'USDT':
       case 'EUR':
       case 'GBP':
-        return 2000.0;
+        return 500.0;
       case 'AED':
         return 8000.0;
       case 'INR':
